@@ -1,4 +1,4 @@
-# MT-MA-RL - Multi-task Multi-agent Reinforcement Learning
+# SOME - Shared Online Multi-agent Knowledge Exchange
 
 # Clone
 ```
@@ -9,7 +9,7 @@ git clone https://github.com/DeepAI-Comm/mt-ma-rl.git
 ## Env creation
 ```
 git clone https://github.com/DeepAI-Comm/mt-ma-rl.git
-cd path/to/folder/mt-ma-rl
+cd path/to/folder/some
 pythonx.x>=3.9 -m venv .env
 ```
 ## Activate Env
@@ -33,11 +33,10 @@ AutoRom
 # Google Colab setup
 ```
 cd content/path/to/folder/mt-ma-rl
-!python -m pip install --upgrade pip
-!pip install wheel
-!pip install -r requirements.txt
-!pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu116
-!AutoRom
+!pip install pettingzoo supersuit autorom multi_agent_ale_py tinyscaler
+%cd path/to/some/rom
+!python -m atari_py.import_roms .
+!AutoROM --accept-license
 ```
 
 # Training helpdesk
