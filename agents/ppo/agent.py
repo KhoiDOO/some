@@ -224,25 +224,39 @@ class PPO:
         self.log["epoch"].append(epoch)
         self.log["loss"].append(loss)
 
-    def export_log(self, rdir, ep):
+    def export_log(self, rdir: str, ep: int, extension: str = ".parquet"):
+        """Export log to file
+
+        Args:
+            rdir (str): folder for saving
+            ep (int): current episode
+            extension (str, optional): save file extension. Defaults to ".parquet".
+        """
         sub_dir = rdir + "/ppo"
         if not os.path.exists(sub_dir):
             os.mkdir(sub_dir)    
         agent_sub_dir = sub_dir + f"/{self.agent_name}"
         if not os.path.exists(agent_sub_dir):
             os.mkdir(agent_sub_dir)
-        filepath = agent_sub_dir + f"/{ep}.csv"
+
+        filepath = agent_sub_dir + f"/{ep}{extension}"
         export_df = pd.DataFrame(self.log)
-        export_df.to_csv(filepath)
+
+        if extension == ".parquet":
+            export_df.to_parquet(filepath)
+        elif extension == ".csv":
+            export_df.to_csv(filepath)
+        elif extension == ".pickle":
+            export_df.to_pickle(filepath)
     
     def model_export(self, rdir: str):
-        """_summary_
+        """Export model to file
 
         Args:
             dir (str): folder for saving model weights
         """
         filename = f"ppo_{self.agent_name}"
-        filpath = rdir + f"/{filename}.pth"
+        filpath = rdir + f"/{filename}.pt"
         torch.save(self.policy_old.state_dict(), filpath)
 
 
@@ -250,5 +264,5 @@ if __name__ == "__main__":
     ppo = PPO()
     ppo.buffer_sample()
     ppo.update()
-    # ppo.export_log(rdir = os.getcwd() + "/run/train/01-22-2023-22-21-53/log", ep = 1)
-    # ppo.model_export(rdir = os.getcwd() + "/run/train/01-22-2023-22-21-53/weights")
+    ppo.export_log(rdir = os.getcwd() + "/run", ep = 1)
+    ppo.model_export(rdir = os.getcwd() + "/run")
