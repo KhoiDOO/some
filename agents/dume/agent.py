@@ -82,18 +82,21 @@ class DUME:
         self.env_dict = env_dict
         
 
+        # # memory replay
+        # self.rb_obs = torch.zeros((self.env_dict["max_cycles"], self.env_dict["stack_size"], 
+        #             *tuple(self.env_dict["single_frame_size"]))).to(self.device)
+        # self.rb_act = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
+        # self.rb_rew = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
+        # self.out_of_memory = False
+
         # memory replay
-        self.rb_obs = torch.zeros((self.env_dict["max_cycles"], self.env_dict["stack_size"], 
-                    *tuple(self.env_dict["single_frame_size"]))).to(self.device)
-        self.rb_act = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
-        # self.rb_logprobs = torch.zeros(self.env_dict["max_cycles"]).to(self.device)
-        self.rb_rew = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
-        # self.rb_terms = torch.zeros(self.env_dict["max_cycles"]).to(self.device)
-        # self.rb_values = torch.zeros(self.env_dict["max_cycles"]).to(self.device)
-        self.out_of_memory = False
+        self.rb_obs = list()
+        self.rb_act = list()
+        self.rb_rew = list()
 
         # Track
         self.log = {
+            "episode" : [],
             "epoch" : [],
             "tel" : [],
             "sel" : [],
@@ -101,28 +104,18 @@ class DUME:
             "ol" : [],
             "al" : [],
         }
-
-
-    def get_name(self):
-        return self.agent_name
     
     def add_memory(self, obs: torch.Tensor, acts: torch.Tensor, rews: torch.Tensor):
         """_summary_
 
         Args:
-            obs (torch.Tensor): Observation or batch of observation. Size of [None, stack_size, height, width]
-            acts (torch.Tensor): Action or batch of action. Size of [None, 1]
-            rews (torch.Tensor): Reward or batch of reward gained. Size of [None, 1]
+            obs (torch.Tensor): Observation or batch of observation. Size of [max_cycle, stack_size, height, width]
+            acts (torch.Tensor): Action or batch of action. Size of [max_cycle, 1]
+            rews (torch.Tensor): Reward or batch of reward gained. Size of [max_cycle, 1]
         """
-        if self.out_of_memory:
-            self.rb_obs = torch.cat((self.rb_obs, obs.to(self.device, dtype = torch.float)), axis = 0).to(self.device)
-            self.rb_act = torch.cat((self.rb_act, acts.to(self.device, dtype = torch.float)), axis = 0).to(self.device)
-            self.rb_rew = torch.cat((self.rb_rew, rews.to(self.device, dtype = torch.float)), axis = 0).to(self.device)
-        else:
-            self.out_of_memory = True
-            self.rb_obs = obs.to(self.device, dtype = torch.float)
-            self.rb_act = acts.to(self.device, dtype = torch.float)
-            self.rb_rew = rews.to(self.device, dtype = torch.float)
+        self.rb_obs.append(obs)
+        self.rb_act.append(acts)
+        self.rb_rew.append(rews)
     
     def fake_memory(self):
         for i in range(3):
@@ -211,10 +204,9 @@ class DUME:
 
         self.fake_memory()
         
-        print(f"rb_obs: {self.rb_obs.shape}")
-        print(f"rb_act: {self.rb_act.shape}")
-        print(f"rb_rew: {self.rb_rew.shape}")
-        print(f"out_of_memory: {self.out_of_memory}")
+        print(f"rb_obs: {len(self.rb_obs)} - {self.rb_obs[0].shape}")
+        print(f"rb_act: {len(self.rb_act)} - {self.rb_act[0].shape}")
+        print(f"rb_rew: {len(self.rb_rew)} - {self.rb_rew[0].shape}")
 
         z_emb = torch.randn((5, 128))
         prior_z_emb = torch.randn((5, 128))
@@ -256,46 +248,55 @@ class DUME:
         print(f"DUME Update for agent {self.agent_name}")
 
         for epoch in trange(self.epoches):
-            for index in range(1, self.rb_obs.shape[0] - self.batch_size - 2):
-                prev_obs = self.rb_obs[index:index+self.batch_size]/255
-                curr_obs = self.rb_obs[index+1:index+self.batch_size+1]/255
-                next_obs = self.rb_obs[index+2:index+self.batch_size+2]/255
+            for episode in range(len(self.rb_obs)):
+                for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
+                    prev_obs = self.rb_obs[episode][index:index+self.batch_size]/255
+                    curr_obs = self.rb_obs[episode][index+1:index+self.batch_size+1]/255
+                    next_obs = self.rb_obs[episode][index+2:index+self.batch_size+2]/255
 
-                prev_act = self.rb_act[index:index+self.batch_size]
-                curr_act = self.rb_act[index+1:index+self.batch_size+1]
-                next_act = self.rb_act[index+2:index+self.batch_size+2]
+                    prev_act = self.rb_act[episode][index:index+self.batch_size]
+                    curr_act = self.rb_act[episode][index+1:index+self.batch_size+1]
+                    next_act = self.rb_act[episode][index+2:index+self.batch_size+2]
 
-                prev_rew = self.rb_rew[index:index+self.batch_size]
-                curr_rew = self.rb_act[index+1:index+self.batch_size+1]
-                next_rew = self.rb_act[index+2:index+self.batch_size+2]
+                    prev_rew = self.rb_rew[episode][index:index+self.batch_size]
+                    curr_rew = self.rb_act[episode][index+1:index+self.batch_size+1]
+                    next_rew = self.rb_act[episode][index+2:index+self.batch_size+2]
 
-                tel = self.task_encoder_loss(curr_obs, prev_obs, next_obs, prev_act, curr_act, prev_rew, curr_rew, next_rew)
+                    tel = self.task_encoder_loss(curr_obs, prev_obs, next_obs, prev_act, curr_act, prev_rew, curr_rew, next_rew)
 
-                sel = self.skill_encoder_loss(prev_obs, prev_act)
+                    sel = self.skill_encoder_loss(prev_obs, prev_act)
 
-                task_embedding, obs_task_encoded = self.brain.task_encoder(curr_obs, prev_act, prev_rew)
+                    task_embedding, obs_task_encoded = self.brain.task_encoder(curr_obs, prev_act, prev_rew)
 
-                rl = self.reward_loss(obs_task_encoded, curr_act, task_embedding, curr_rew)
+                    rl = self.reward_loss(obs_task_encoded, curr_act, task_embedding, curr_rew)
 
-                ol = self.observation_loss(obs_task_encoded, curr_act, task_embedding, next_obs)
+                    ol = self.observation_loss(obs_task_encoded, curr_act, task_embedding, next_obs)
 
-                skill_embedding, obs_skill_encoded = self.brain.skill_encoder(curr_obs, curr_act)
+                    skill_embedding, obs_skill_encoded = self.brain.skill_encoder(curr_obs, curr_act)
 
-                al = self.action_loss(obs_skill_encoded, skill_embedding, curr_act)
+                    al = self.action_loss(obs_skill_encoded, skill_embedding, curr_act)
 
-                self.optimizer.zero_grad()
-                tel.backward(retain_graph=True)
-                sel.backward(retain_graph=True)
-                rl.backward(retain_graph=True)
-                ol.backward(retain_graph=True)
-                al.backward(retain_graph=True)
-                self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    tel.backward(retain_graph=True)
+                    sel.backward(retain_graph=True)
+                    rl.backward(retain_graph=True)
+                    ol.backward(retain_graph=True)
+                    al.backward(retain_graph=True)
+                    self.optimizer.step()
 
-                # print(f"tel: {tel.item()} - sel: {sel.item()} - rl: {rl.item()} - ol: {ol.item()} - al: {al.item()}")
-                self.logging(epoch=epoch, tel = tel.item(), sel=sel.item(), rl=rl.item(), ol=ol.item(), al=al.item())
+                    # print(f"tel: {tel.item()} - sel: {sel.item()} - rl: {rl.item()} - ol: {ol.item()} - al: {al.item()}")
+                    self.logging(
+                        episode=episode,
+                        epoch=epoch, 
+                        tel = tel.item(), 
+                        sel=sel.item(), 
+                        rl=rl.item(), 
+                        ol=ol.item(), 
+                        al=al.item())
 
         # self.export_log("test.csv")
-    def logging(self, epoch, tel, sel, rl, ol, al):
+    def logging(self, episode, epoch, tel, sel, rl, ol, al):
+        self.log["episode"].append(episode)
         self.log["epoch"].append(epoch)
         self.log["tel"].append(tel)
         self.log["sel"].append(sel)
