@@ -20,7 +20,7 @@ def train(args: argparse.PARSER):
     # device setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Verify
+    # verify
     run_folder_verify(current_time)
 
     # setting path

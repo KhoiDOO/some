@@ -81,14 +81,6 @@ class DUME:
         self.agent_name = agent_name
         self.epoches = epoches
         self.env_dict = env_dict
-        
-
-        # # memory replay
-        # self.rb_obs = torch.zeros((self.env_dict["max_cycles"], self.env_dict["stack_size"], 
-        #             *tuple(self.env_dict["single_frame_size"]))).to(self.device)
-        # self.rb_act = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
-        # self.rb_rew = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
-        # self.out_of_memory = False
 
         # memory replay
         self.rb_obs = list()
