@@ -57,7 +57,7 @@ class DUME_Brain(nn.Module):
 class DUME:
     def __init__(self, batch_size: int = 20, lr: float = 0.005, gamma: float = 0.99,
             optimizer: str = "Adam", agent_name: str = None, epoches:int = 3,
-            env_dict = env_def, device = "cpu") -> None:
+            env_dict = env_def, train_device = "gpu", buffer_device = "cpu") -> None:
         """Constuctor of DUME
 
         Args:
@@ -74,26 +74,22 @@ class DUME:
         self.batch_size = batch_size
         self.lr = lr
         self.gamma = gamma
-        self.device = device
-        self.brain = DUME_Brain(device = self.device).to(device = self.device)
+        self.train_device = train_device
+        self.buffer_device = buffer_device
+        self.brain = DUME_Brain(device = self.train_device).to(device = self.train_device)
         self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
         self.agent_name = agent_name
         self.epoches = epoches
         self.env_dict = env_dict
-        
 
         # memory replay
-        self.rb_obs = torch.zeros((self.env_dict["max_cycles"], self.env_dict["stack_size"], 
-                    *tuple(self.env_dict["single_frame_size"]))).to(self.device)
-        self.rb_act = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
-        # self.rb_logprobs = torch.zeros(self.env_dict["max_cycles"]).to(self.device)
-        self.rb_rew = torch.zeros((self.env_dict["max_cycles"], 1)).to(self.device)
-        # self.rb_terms = torch.zeros(self.env_dict["max_cycles"]).to(self.device)
-        # self.rb_values = torch.zeros(self.env_dict["max_cycles"]).to(self.device)
-        self.out_of_memory = False
+        self.rb_obs = list()
+        self.rb_act = list()
+        self.rb_rew = list()
 
         # Track
         self.log = {
+            "episode" : [],
             "epoch" : [],
             "tel" : [],
             "sel" : [],
@@ -101,45 +97,35 @@ class DUME:
             "ol" : [],
             "al" : [],
         }
-
-
-    def get_name(self):
-        return self.agent_name
     
     def add_memory(self, obs: torch.Tensor, acts: torch.Tensor, rews: torch.Tensor):
         """_summary_
 
         Args:
-            obs (torch.Tensor): Observation or batch of observation. Size of [None, stack_size, height, width]
-            acts (torch.Tensor): Action or batch of action. Size of [None, 1]
-            rews (torch.Tensor): Reward or batch of reward gained. Size of [None, 1]
+            obs (torch.Tensor): Observation or batch of observation. Size of [max_cycle, stack_size, height, width]
+            acts (torch.Tensor): Action or batch of action. Size of [max_cycle, 1]
+            rews (torch.Tensor): Reward or batch of reward gained. Size of [max_cycle, 1]
         """
-        if self.out_of_memory:
-            self.rb_obs = torch.cat((self.rb_obs, obs.to(self.device, dtype = torch.float)), axis = 0).to(self.device)
-            self.rb_act = torch.cat((self.rb_act, acts.to(self.device, dtype = torch.float)), axis = 0).to(self.device)
-            self.rb_rew = torch.cat((self.rb_rew, rews.to(self.device, dtype = torch.float)), axis = 0).to(self.device)
-        else:
-            self.out_of_memory = True
-            self.rb_obs = obs.to(self.device, dtype = torch.float)
-            self.rb_act = acts.to(self.device, dtype = torch.float)
-            self.rb_rew = rews.to(self.device, dtype = torch.float)
+        self.rb_obs.append(obs)
+        self.rb_act.append(acts)
+        self.rb_rew.append(rews)
     
     def fake_memory(self):
         for i in range(3):
             obs_buffer = torch.randn((self.env_dict["max_cycles"], self.env_dict["stack_size"], 
-                    *tuple(self.env_dict["single_frame_size"]))).to(self.device)
-            act_buffer = torch.randn((self.env_dict["max_cycles"], 1)).to(self.device)
-            rew_buffer = torch.randn((self.env_dict["max_cycles"], 1)).to(self.device)
+                    *tuple(self.env_dict["single_frame_size"]))).to(self.buffer_device)
+            act_buffer = torch.randn((self.env_dict["max_cycles"], 1)).to(self.buffer_device)
+            rew_buffer = torch.randn((self.env_dict["max_cycles"], 1)).to(self.buffer_device)
 
             self.add_memory(obs = obs_buffer, acts = act_buffer, rews=rew_buffer)
     
     def __call__(self, curr_obs, curr_act, prev_act, prev_rew):
         return self.brain(
-            curr_obs.to(device = self.device), 
-            curr_act.to(device = self.device), 
-            prev_act.to(device = self.device), 
-            prev_rew.to(device = self.device),
-            self.device)
+            curr_obs.to(device = self.train_device), 
+            curr_act.to(device = self.train_device), 
+            prev_act.to(device = self.train_device), 
+            prev_rew.to(device = self.train_device),
+            self.train_device)
     
     def unitest(self):
         test_skill_encoder = self.brain.skill_encoder
@@ -211,10 +197,9 @@ class DUME:
 
         self.fake_memory()
         
-        print(f"rb_obs: {self.rb_obs.shape}")
-        print(f"rb_act: {self.rb_act.shape}")
-        print(f"rb_rew: {self.rb_rew.shape}")
-        print(f"out_of_memory: {self.out_of_memory}")
+        print(f"rb_obs: {len(self.rb_obs)} - {self.rb_obs[0].shape}")
+        print(f"rb_act: {len(self.rb_act)} - {self.rb_act[0].shape}")
+        print(f"rb_rew: {len(self.rb_rew)} - {self.rb_rew[0].shape}")
 
         z_emb = torch.randn((5, 128))
         prior_z_emb = torch.randn((5, 128))
@@ -256,46 +241,55 @@ class DUME:
         print(f"DUME Update for agent {self.agent_name}")
 
         for epoch in trange(self.epoches):
-            for index in range(1, self.rb_obs.shape[0] - self.batch_size - 2):
-                prev_obs = self.rb_obs[index:index+self.batch_size]/255
-                curr_obs = self.rb_obs[index+1:index+self.batch_size+1]/255
-                next_obs = self.rb_obs[index+2:index+self.batch_size+2]/255
+            for episode in range(len(self.rb_obs)):
+                for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
+                    prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device)
+                    curr_obs = (self.rb_obs[episode][index+1:index+self.batch_size+1]/255).to(self.train_device)
+                    next_obs = (self.rb_obs[episode][index+2:index+self.batch_size+2]/255).to(self.train_device)
 
-                prev_act = self.rb_act[index:index+self.batch_size]
-                curr_act = self.rb_act[index+1:index+self.batch_size+1]
-                next_act = self.rb_act[index+2:index+self.batch_size+2]
+                    prev_act = (self.rb_act[episode][index:index+self.batch_size]).to(self.train_device)
+                    curr_act = (self.rb_act[episode][index+1:index+self.batch_size+1]).to(self.train_device)
+                    # next_act = self.rb_act[episode][index+2:index+self.batch_size+2]
 
-                prev_rew = self.rb_rew[index:index+self.batch_size]
-                curr_rew = self.rb_act[index+1:index+self.batch_size+1]
-                next_rew = self.rb_act[index+2:index+self.batch_size+2]
+                    prev_rew = (self.rb_rew[episode][index:index+self.batch_size]).to(self.train_device)
+                    curr_rew = (self.rb_act[episode][index+1:index+self.batch_size+1]).to(self.train_device)
+                    next_rew = (self.rb_act[episode][index+2:index+self.batch_size+2]).to(self.train_device)
 
-                tel = self.task_encoder_loss(curr_obs, prev_obs, next_obs, prev_act, curr_act, prev_rew, curr_rew, next_rew)
+                    tel = self.task_encoder_loss(curr_obs, prev_obs, next_obs, prev_act, curr_act, prev_rew, curr_rew, next_rew)
 
-                sel = self.skill_encoder_loss(prev_obs, prev_act)
+                    sel = self.skill_encoder_loss(prev_obs, prev_act)
 
-                task_embedding, obs_task_encoded = self.brain.task_encoder(curr_obs, prev_act, prev_rew)
+                    task_embedding, obs_task_encoded = self.brain.task_encoder(curr_obs, prev_act, prev_rew)
 
-                rl = self.reward_loss(obs_task_encoded, curr_act, task_embedding, curr_rew)
+                    rl = self.reward_loss(obs_task_encoded, curr_act, task_embedding, curr_rew)
 
-                ol = self.observation_loss(obs_task_encoded, curr_act, task_embedding, next_obs)
+                    ol = self.observation_loss(obs_task_encoded, curr_act, task_embedding, next_obs)
 
-                skill_embedding, obs_skill_encoded = self.brain.skill_encoder(curr_obs, curr_act)
+                    skill_embedding, obs_skill_encoded = self.brain.skill_encoder(curr_obs, curr_act)
 
-                al = self.action_loss(obs_skill_encoded, skill_embedding, curr_act)
+                    al = self.action_loss(obs_skill_encoded, skill_embedding, curr_act)
 
-                self.optimizer.zero_grad()
-                tel.backward(retain_graph=True)
-                sel.backward(retain_graph=True)
-                rl.backward(retain_graph=True)
-                ol.backward(retain_graph=True)
-                al.backward(retain_graph=True)
-                self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    tel.backward(retain_graph=True)
+                    sel.backward(retain_graph=True)
+                    rl.backward(retain_graph=True)
+                    ol.backward(retain_graph=True)
+                    al.backward(retain_graph=True)
+                    self.optimizer.step()
 
-                # print(f"tel: {tel.item()} - sel: {sel.item()} - rl: {rl.item()} - ol: {ol.item()} - al: {al.item()}")
-                self.logging(epoch=epoch, tel = tel.item(), sel=sel.item(), rl=rl.item(), ol=ol.item(), al=al.item())
+                    # print(f"tel: {tel.item()} - sel: {sel.item()} - rl: {rl.item()} - ol: {ol.item()} - al: {al.item()}")
+                    self.logging(
+                        episode=episode,
+                        epoch=epoch, 
+                        tel = tel.item(), 
+                        sel=sel.item(), 
+                        rl=rl.item(), 
+                        ol=ol.item(), 
+                        al=al.item())
 
         # self.export_log("test.csv")
-    def logging(self, epoch, tel, sel, rl, ol, al):
+    def logging(self, episode, epoch, tel, sel, rl, ol, al):
+        self.log["episode"].append(episode)
         self.log["epoch"].append(epoch)
         self.log["tel"].append(tel)
         self.log["sel"].append(sel)
@@ -303,25 +297,37 @@ class DUME:
         self.log["ol"].append(ol)
         self.log["al"].append(al)
     
-    def export_log(self, rdir, ep):
+    def export_log(self, rdir: str, ep: int, extension: str = ".parquet"):
+        """Export log to file
+        Args:
+            rdir (str): folder for saving
+            ep (int): current episode
+            extension (str, optional): save file extension. Defaults to ".parquet".
+        """
         sub_dir = rdir + "/dume"
         if not os.path.exists(sub_dir):
             os.mkdir(sub_dir)    
         agent_sub_dir = sub_dir + f"/{self.agent_name}"
         if not os.path.exists(agent_sub_dir):
             os.mkdir(agent_sub_dir)
-        filepath = agent_sub_dir + f"/{ep}.csv"
+
+        filepath = agent_sub_dir + f"/{ep}{extension}"
         export_df = pd.DataFrame(self.log)
-        export_df.to_csv(filepath)
+
+        if extension == ".parquet":
+            export_df.to_parquet(filepath)
+        elif extension == ".csv":
+            export_df.to_csv(filepath)
+        elif extension == ".pickle":
+            export_df.to_pickle(filepath)
     
     def model_export(self, rdir: str):
-        """_summary_
-
+        """Export model to file
         Args:
             dir (str): folder for saving model weights
         """
         filename = f"dume_{self.agent_name}"
-        filpath = rdir + f"/{filename}.pth"
+        filpath = rdir + f"/{filename}.pt"
         torch.save(self.brain.state_dict(), filpath)
 
     def task_latent_distance(self, z:torch.Tensor, z1:torch.Tensor = None, reg_weight: float=100):
@@ -345,15 +351,15 @@ class DUME:
         x1d = x1.shape
         x2d = x2.shape
 
-        x1 = x1.view(x1d[0], -1, x1d[1]).to(device=self.device)
-        x2 = x2.view(-1, x2d[0], x2d[1]).to(device=self.device)
+        x1 = x1.view(x1d[0], -1, x1d[1]).to(device=self.train_device)
+        x2 = x2.view(-1, x2d[0], x2d[1]).to(device=self.train_device)
 
         x1 = torch.repeat_interleave(x1, x1d[0], dim=-2)
         x2 = torch.repeat_interleave(x2, x1d[0], dim=-3)
 
         z_dim = x2.shape[-1]
-        C = torch.tensor(2 * z_dim * latent_var).to(self.device)
-        kernel = C / (torch.tensor(eps).to(self.device) + C + torch.square(x1 - x2).sum(dim=-1))
+        C = torch.tensor(2 * z_dim * latent_var).to(self.train_device)
+        kernel = C / (torch.tensor(eps).to(self.train_device) + C + torch.square(x1 - x2).sum(dim=-1))
 
         result = torch.sum(kernel) - torch.trace(kernel)
 
@@ -373,9 +379,9 @@ class DUME:
                               + torch.mean(torch.sum(torch.square(pred_rew - curr_rew), dim=1), dim=0)
 
         reg_loss = self.task_latent_distance(task_embedding)
-        l2_reg = torch.tensor(0.).to(self.device)
+        l2_reg = torch.tensor(0.).to(self.train_device)
         for param in self.brain.task_encoder.parameters():
-            l2_reg += torch.norm(param).to(self.device)
+            l2_reg += torch.norm(param).to(self.train_device)
         
         curr_rew = curr_rew.permute(-1, 0)
         task_skill_dis = torch.sum(torch.square(task_embedding - skill_embedding), dim=-1).view(-1, self.batch_size).permute(-1, 0)
@@ -389,9 +395,9 @@ class DUME:
         pred_act = self.brain.skill_decoder(obs_skill_encoded, skill_embedding)
 
         reconstruction_loss = torch.mean(torch.sum(torch.square(pred_act - prev_act), dim=1), dim=0)
-        l2_reg = torch.tensor(0.).to(self.device)
+        l2_reg = torch.tensor(0.).to(self.train_device)
         for param in self.brain.skill_encoder.parameters():
-            l2_reg += torch.norm(param).to(self.device)
+            l2_reg += torch.norm(param).to(self.train_device)
         reg_loss = self.task_latent_distance(skill_embedding)
 
         loss = reconstruction_loss + reg_loss + l2_reg * 1e-3
@@ -399,17 +405,17 @@ class DUME:
 
     def reward_loss(self, obs_task_encoded, curr_act, task_embedding, curr_rew):
         pred_rewards = self.brain.rew_decoder(obs_task_encoded, curr_act, task_embedding)
-        l2_reg = torch.tensor(0.).to(self.device)
+        l2_reg = torch.tensor(0.).to(self.train_device)
         for param in self.brain.rew_decoder.parameters():
-            l2_reg += torch.norm(param).to(self.device)
+            l2_reg += torch.norm(param).to(self.train_device)
         loss = torch.mean(torch.sum(torch.square(pred_rewards - curr_rew), dim=1), dim=0) + 1e-3 * l2_reg
         return loss
 
     def observation_loss(self, obs_task_encoded, curr_act, task_embedding, next_obs):
         pred_obs = self.brain.obs_decoder(obs_task_encoded, curr_act, task_embedding)
-        l2_reg = torch.tensor(0.).to(self.device)
+        l2_reg = torch.tensor(0.).to(self.train_device)
         for param in self.brain.obs_decoder.parameters():
-            l2_reg += torch.norm(param).to(self.device)
+            l2_reg += torch.norm(param).to(self.train_device)
         
         pred_obs = torch.flatten(pred_obs, start_dim=1, end_dim=-1)
         next_obs = torch.flatten(next_obs, start_dim=1, end_dim=-1)
@@ -419,14 +425,14 @@ class DUME:
 
     def action_loss(self, obs_skill_encoded, skill_embedding, curr_act):
         pred_act = self.brain.skill_decoder(obs_skill_encoded, skill_embedding)
-        l2_reg = torch.tensor(0.).to(self.device)
+        l2_reg = torch.tensor(0.).to(self.train_device)
         for param in self.brain.skill_decoder.parameters():
-            l2_reg += torch.norm(param).to(self.device)
+            l2_reg += torch.norm(param).to(self.train_device)
         loss = torch.mean(torch.sum(torch.square(pred_act - curr_act), axis=1), axis=0) + 1e-3 * l2_reg
         return loss
 
 if __name__ == "__main__":
-    dume = DUME(epoches = 1, batch_size=20)
+    dume = DUME(epoches = 1, batch_size=20, train_device="cpu", buffer_device="cpu")
     dume.unitest()
-    # dume.export_log(rdir=os.getcwd() + "/run/train/01-21-2023-15-19-51/log", ep=1)
-    # dume.model_export(rdir=os.getcwd() + "/run/train/01-21-2023-15-19-51/weights")
+    dume.export_log(rdir=os.getcwd() + "/run", ep=1)
+    dume.model_export(rdir=os.getcwd() + "/run")
