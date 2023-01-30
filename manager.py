@@ -12,240 +12,310 @@ import pandas as pd
 
 from envs.warlords.warlord_env import wardlord_coordinate_obs, wardlord_partial_obs_merge
 
-def train(args: argparse.PARSER):
-    args_dict = vars(args)
+class Training:
+    def __init__(self, args: argparse.PARSER) -> None:
+        self.args = args
+
+        # setup
+        self.setup()
+
+    def train(self, agent_name:str = "first_0"):
+        if self.args.train_type == "parallel":
+            self.parallel()
+        elif self.args.train_type == "single":
+            self.single()
+        elif self.args.train_type == "dumeonly":
+            self.dume_only(agent_name=agent_name)
+        elif self.args.train_type == "algoonly":
+            self.algo_only()
+            
     
-    current_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
-
-    # device setup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # verify
-    run_folder_verify(current_time)
-
-    # setting path
-    save_train_set_path = os.getcwd() + f"/run/train/{current_time}/settings/settings.json"
-    save_valid_set_path = os.getcwd() + f"/run/val/{current_time}/settings/settings.json"
-
-    # aggent logging save_dir
-    log_agent_dir = os.getcwd() + f"/run/train/{current_time}/log"
-    model_agent_dir = os.getcwd() + f"/run/train/{current_time}/weights"
-
-    # main experiment logging
-    main_log_dir = os.getcwd() + f"/run/train/{current_time}/log/main"
-
-    with open(save_train_set_path, "w") as outfile:
-        json.dump(args_dict, outfile)
-    with open(save_valid_set_path, "w") as outfile:
-        json.dump(args_dict, outfile)
+    def setup(self):
+        args_dict = vars(self.args)
     
-    # Extract
-    # print(args_dict)
-    env_name = args_dict["env"]
-    env_meta = args_dict["env_meta"]
-    episodes = args_dict["ep"]
-    gamma = args_dict["gamma"]
-    p_size = args_dict["view"]
+        self.current_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
 
-    agent_algo = args_dict["agent"]
-    epoches = args_dict["epoches"]
-    batch_size = args_dict["bs"]
-    actor_lr = args_dict["actor_lr"]
-    critic_lr = args_dict["critic_lr"]
-    optimizer = args_dict["opt"]
+        # device setup
+        self.train_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.buffer_device = "cpu"
 
-    dume_in_use = args_dict["dume"]
-    dume_epoches = args_dict["dume_epoches"]
-    dume_batch_size = args_dict["dume_bs"]
-    dume_lr = args_dict["dume_lr"]
-    dume_optimizer = args_dict["dume_opt"]
+        # verify
+        run_folder_verify(self.current_time)
 
-    # Create Env
-    default_env_meta_path = os.getcwd() + f"/envs/{env_name}/metadata/{env_meta}.json"
+        # setting path
+        self.save_train_set_path = os.getcwd() + f"/run/train/{self.current_time}/settings/settings.json"
+        self.save_valid_set_path = os.getcwd() + f"/run/val/{self.current_time}/settings/settings.json"
 
-    env_metadata = json.load(open(default_env_meta_path)) # get metadata for env
-    output_env = env_mapping[env_name](stack_size = env_metadata["stack_size"], frame_size = tuple(env_metadata["frame_size"]),
-                        max_cycles = env_metadata["max_cycles"], render_mode = env_metadata["render_mode"],
-                        parralel = env_metadata["parralel"], color_reduc=env_metadata["color_reduc"])
+        # aggent logging save_dir
+        self.log_agent_dir = os.getcwd() + f"/run/train/{self.current_time}/log"
+        self.model_agent_dir = os.getcwd() + f"/run/train/{self.current_time}/weights"
+
+        # main experiment logging
+        self.main_log_dir = os.getcwd() + f"/run/train/{self.current_time}/log/main"
+
+        with open(self.save_train_set_path, "w") as outfile:
+            json.dump(args_dict, outfile)
+        with open(self.save_valid_set_path, "w") as outfile:
+            json.dump(args_dict, outfile)
+
+        self.env_name = args_dict["env"]
+        self.env_meta = args_dict["env_meta"]
+        self.episodes = args_dict["ep"]
+        self.gamma = args_dict["gamma"]
+        self.p_size = args_dict["view"]
+
+        self.agent_algo = args_dict["agent"]
+        self.epoches = args_dict["epoches"]
+        self.batch_size = args_dict["bs"]
+        self.actor_lr = args_dict["actor_lr"]
+        self.critic_lr = args_dict["critic_lr"]
+        self.optimizer = args_dict["opt"]
+
+        self.dume_in_use = args_dict["dume"]
+        self.dume_epoches = args_dict["dume_epoches"]
+        self.dume_batch_size = args_dict["dume_bs"]
+        self.dume_lr = args_dict["dume_lr"]
+        self.dume_optimizer = args_dict["dume_opt"]
+
+        # Create Env
+        self.default_env_meta_path = os.getcwd() + f"/envs/{self.env_name}/metadata/{self.env_meta}.json"
+
+        self.env_metadata = json.load(open(self.default_env_meta_path)) # get metadata for env
+        self.output_env = env_mapping[self.env_name](stack_size = self.env_metadata["stack_size"], frame_size = tuple(self.env_metadata["frame_size"]),
+                        max_cycles = self.env_metadata["max_cycles"], render_mode = self.env_metadata["render_mode"],
+                        parralel = self.env_metadata["parralel"], color_reduc=self.env_metadata["color_reduc"])
+
+        self.agent_names = self.output_env.possible_agents
+        
+        self.main_algo_agents = {name : agent_mapping[self.agent_algo](
+            stack_size = self.env_metadata["stack_size"], 
+            action_dim = self.output_env.action_space(self.output_env.possible_agents[0]).n, 
+            lr_actor = self.actor_lr, 
+            lr_critic = self.critic_lr, 
+            gamma = self.gamma, 
+            K_epochs = self.epoches, 
+            eps_clip = 0.2, 
+            device = self.train_device, 
+            optimizer = self.optimizer, 
+            batch_size = self.batch_size,
+            agent_name = name
+        ) for name in self.agent_names}
+
+        self.env_dume_def = {
+            "max_cycles" : self.env_metadata["max_cycles"],
+            "num_agents" : len(self.agent_names),
+            "stack_size" : self.env_metadata["stack_size"],
+            "single_frame_size" : (int(self.env_metadata["frame_size"][0]/2), 
+                                    int(self.env_metadata["frame_size"][1]/2))
+        }
+
+        if self.dume_in_use:
+            self.dume_agents = {name : agent_mapping["dume"](
+                batch_size = self.dume_batch_size, 
+                lr = self.dume_lr, 
+                gamma = self.gamma,
+                optimizer = self.dume_optimizer, 
+                agent_name = name,
+                epoches = self.dume_epoches,
+                env_dict = self.env_dume_def, 
+                train_device = self.train_device,
+                buffer_device = self.buffer_device
+            ) for name in self.agent_names}
+        
+        # Log dict
+
+        self.main_log = {
+            "step" : [],
+            "first_0" : [],
+            "second_0" : [],
+            "third_0" : [],
+            "fourth_0" : []
+        }
+
+    def single(self):
+        pass
     
-    # Agents Setting
+    def dume_only(self, agent_name = "first_0"):
 
-    agent_names = output_env.possible_agents
+        # Buffer Memory
+        
+        for ep in trange(self.episodes):
 
-    main_algo_agents = {name : agent_mapping[agent_algo](
-        stack_size = env_metadata["stack_size"], 
-        action_dim = output_env.action_space(output_env.possible_agents[0]).n, 
-        lr_actor = actor_lr, 
-        lr_critic = critic_lr, 
-        gamma = gamma, 
-        K_epochs = epoches, 
-        eps_clip = 0.2, 
-        device = device, 
-        optimizer = optimizer, 
-        batch_size = batch_size,
-        agent_name = name
-    ) for name in agent_names}
+            with torch.no_grad():
 
-    env_dume_def = {
-        "max_cycles" : env_metadata["max_cycles"],
-        "num_agents" : len(agent_names),
-        "stack_size" : env_metadata["stack_size"],
-        "single_frame_size" : (int(env_metadata["frame_size"][0]/2), 
-                                int(env_metadata["frame_size"][1]/2))
-    }
+                next_obs = self.output_env.reset(seed=None)
 
-    # print(env_dume_def)
+                dume_agent = self.dume_agents[agent_name]
 
-    if dume_in_use:
-        dume_agents = {name : agent_mapping["dume"](
-            batch_size = dume_batch_size, 
-            lr = dume_lr, 
-            gamma = gamma,
-            optimizer = dume_optimizer, 
-            agent_name = name,
-            epoches = dume_epoches,
-            env_dict = env_dume_def, 
-            device = device
-        ) for name in agent_names}
-    
-    # Log dict
+                obs_lst, act_lst, rew_lst = [], [], []
 
-    main_log = {
-        "step" : [],
-        "first_0" : [],
-        "second_0" : [],
-        "third_0" : [],
-        "fourth_0" : []
-    }
-    
-    # Training
-    for ep in trange(episodes):
+                for step in range(self.env_metadata["max_cycles"]):
 
-        with torch.no_grad():
+                    actions = {a : self.output_env.action_space(a).sample() for a in self.output_env.possible_agents}
 
-            next_obs = output_env.reset(seed=None)
+                    next_obs, rewards, termination, truncation, info = self.output_env.step(actions)
 
-            # temporary buffer
-            curr_act_buffer = {agent : torch.zeros(1, 1) for agent in agent_names}
-            prev_act_buffer = {agent : torch.zeros(1, 1) for agent in agent_names}
-            curr_rew_buffer = {agent : torch.zeros(1, 1) for agent in agent_names}
-            prev_rew_buffer = {agent : torch.zeros(1, 1) for agent in agent_names}
+                    action = torch.tensor([actions[agent_name]])
 
-            for step in range(env_metadata["max_cycles"]):
+                    act_lst.append(action)
 
-                curr_obs = batchify_obs(next_obs, device)[0].view(
-                    -1, 
-                    env_metadata["stack_size"],
-                    env_metadata["frame_size"][0], 
-                    env_metadata["frame_size"][1]
-                )                
+                    reward = torch.tensor([rewards[agent_name]])
 
-                # print(curr_obs.shape)
+                    rew_lst.append(reward)
 
-                agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=p_size)
+                    curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                        -1, 
+                        self.env_metadata["stack_size"],
+                        self.env_metadata["frame_size"][0], 
+                        self.env_metadata["frame_size"][1]
+                    ) 
 
-                # for agent in agent_curr_obs:
-                #     print(type(agent_curr_obs[agent]))
-                #     agent_obs = agent_curr_obs[agent][0].permute(-1, 1, 0).numpy()
-                #     cv.imshow(agent, agent_obs)
-                #     cv.waitKey(0)                  
+                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
 
-                for agent in agent_names:
-                    base_agent_curr_obs = agent_curr_obs[agent] # get obs specific to agent
+                    obs_used = agent_curr_obs[agent_name][0]
 
-                    obs_merges = {
-                        agent : base_agent_curr_obs
-                    } # Create obs dict with restricted view
+                    obs_lst.append(obs_used)
 
-                    for others in agent_names:
-                        if others != agent:
-                            # Add other agent information to their dume memory
-                            dume_agents[others].add_memory(
-                                agent_curr_obs[others], 
-                                curr_act_buffer[others], 
-                                curr_rew_buffer[others])
+                obs_stack = torch.stack(obs_lst)
+                act_stack = torch.stack(act_lst)
+                rew_stack = torch.stack(rew_lst)
 
-                            # print(agent_curr_obs[others].shape)
-                            # break
+                dume_agent.add_memory(obs = obs_stack, acts = act_stack, rews = rew_stack)
+        
+        # Dume training
+        dume_agent.update()
+        dume_agent.export_log(rdir = self.log_agent_dir, ep = ep)
+        dume_agent.model_export(rdir = self.model_agent_dir)
 
-                            # Get predicted information by dume
-                            pred_obs, \
-                            pred_act, \
-                            pred_rew, \
-                            skill_embedding, \
-                            task_embedding = dume_agents[others](
-                                curr_obs = agent_curr_obs[others].to(device=device, dtype=torch.float),
-                                curr_act = curr_act_buffer[others].to(device=device, dtype=torch.float),
-                                prev_act = prev_act_buffer[others].to(device=device, dtype=torch.float),
-                                prev_rew = prev_rew_buffer[others].to(device=device, dtype=torch.float)
-                            )
+    def algo_only(self):
+        pass
 
-                            # add others' predicted obs to obs_dict
-                            obs_merges[others] = pred_obs
+    def parallel(self): #Currently wrong
+        # Training
+        for ep in trange(self.episodes):
+
+            with torch.no_grad():
+
+                next_obs = self.output_env.reset(seed=None)
+
+                # temporary buffer
+                curr_act_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+                prev_act_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+                curr_rew_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+                prev_rew_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+
+                for step in range(self.env_metadata["max_cycles"]):
+
+                    curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                        -1, 
+                        self.env_metadata["stack_size"],
+                        self.env_metadata["frame_size"][0], 
+                        self.env_metadata["frame_size"][1]
+                    )                
+
+                    # print(curr_obs.shape)
+
+                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+
+                    # for agent in agent_curr_obs:
+                    #     print(type(agent_curr_obs[agent]))
+                    #     agent_obs = agent_curr_obs[agent][0].permute(-1, 1, 0).numpy()
+                    #     cv.imshow(agent, agent_obs)
+                    #     cv.waitKey(0)                  
+
+                    for agent in self.agent_names:
+                        base_agent_curr_obs = agent_curr_obs[agent] # get obs specific to agent
+
+                        obs_merges = {
+                            agent : base_agent_curr_obs
+                        } # Create obs dict with restricted view
+
+                        for others in self.agent_names:
+                            if others != agent:
+                                # Add other agent information to their dume memory
+                                self.dume_agents[others].add_memory(
+                                    agent_curr_obs[others], 
+                                    curr_act_buffer[others], 
+                                    curr_rew_buffer[others])
+
+                                # print(agent_curr_obs[others].shape)
+                                # break
+
+                                # Get predicted information by dume
+                                pred_obs, \
+                                pred_act, \
+                                pred_rew, \
+                                skill_embedding, \
+                                task_embedding = self.dume_agents[others](
+                                    curr_obs = agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
+                                    curr_act = curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
+                                    prev_act = prev_act_buffer[others].to(device=self.train_device, dtype=torch.float),
+                                    prev_rew = prev_rew_buffer[others].to(device=self.train_device, dtype=torch.float)
+                                )
+
+                                # add others' predicted obs to obs_dict
+                                obs_merges[others] = pred_obs
+                        
+                        # Merge Observation
+                        base_agent_merge_obs = wardlord_partial_obs_merge(
+                            obs_merges = obs_merges,
+                            frame_size = tuple(self.env_metadata["frame_size"]),
+                            stack_size = self.env_metadata["stack_size"],
+                            p_size = self.p_size
+                        )                    
+
+                        # Make action
+                        action = self.main_algo_agents[agent].select_action(
+                            base_agent_merge_obs.to(device=self.train_device, dtype=torch.float)
+                        )
+
+                        # Update buffer
+                        curr_act_buffer[agent] = torch.Tensor([[action]])
                     
-                    # Merge Observation
-                    base_agent_merge_obs = wardlord_partial_obs_merge(
-                        obs_merges = obs_merges,
-                        frame_size = tuple(env_metadata["frame_size"]),
-                        stack_size = env_metadata["stack_size"],
-                        p_size = p_size
-                    )                    
+                    # Extract action from buffer
+                    
+                    actions = {
+                        agent : int(curr_act_buffer[agent][0].item()) for agent in curr_act_buffer
+                    }
 
-                    # Make action
-                    action = main_algo_agents[agent].select_action(
-                        base_agent_merge_obs.to(device=device, dtype=torch.float)
-                    )
+                    next_obs, rewards, terms, truncs, infos = self.output_env.step(actions) # Update Environment
 
-                    # Update buffer
-                    curr_act_buffer[agent] = torch.Tensor([[action]])
-                
-                # Extract action from buffer
-                
-                actions = {
-                    agent : int(curr_act_buffer[agent][0].item()) for agent in curr_act_buffer
-                }
+                    # Logging
+                    self.main_log["step"].append(step)
+                    self.main_log["first_0"].append(rewards["first_0"])
+                    self.main_log["second_0"].append(rewards["second_0"])
+                    self.main_log["third_0"].append(rewards["third_0"])
+                    self.main_log["fourth_0"].append(rewards["fourth_0"])
 
-                next_obs, rewards, terms, truncs, infos = output_env.step(actions) # Update Environment
+                    # Update Main Algo Memory
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
 
-                # Logging
-                main_log["step"].append(step)
-                main_log["first_0"].append(rewards["first_0"])
-                main_log["second_0"].append(rewards["second_0"])
-                main_log["third_0"].append(rewards["third_0"])
-                main_log["fourth_0"].append(rewards["fourth_0"])
+                    # Reupdate buffer
+                    prev_act_buffer = curr_act_buffer
+                    prev_rew_buffer = curr_rew_buffer
+                    curr_rew_buffer = {
+                        agent : torch.Tensor([[rewards[agent]]]) for agent in rewards
+                    }
 
-                # Update Main Algo Memory
-                for agent in rewards:
-                    main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
+                    # print(curr_rew_buffer)
+                    # return
 
-                # Reupdate buffer
-                prev_act_buffer = curr_act_buffer
-                prev_rew_buffer = curr_rew_buffer
-                curr_rew_buffer = {
-                    agent : torch.Tensor([[rewards[agent]]]) for agent in rewards
-                }
+                    if any([terms[a] for a in terms]) or any([truncs[a] for a in truncs]):
+                        break
 
-                # print(curr_rew_buffer)
-                # return
-
-                if any([terms[a] for a in terms]) or any([truncs[a] for a in truncs]):
-                    break
-
-        # Update Main Policy and DUME 
-        for agent in agent_names:
-            main_algo_agents[agent].update()
-            main_algo_agents[agent].export_log(rdir = log_agent_dir, ep = ep) # Save main algo log
-            main_algo_agents[agent].model_export(rdir = model_agent_dir) # Save main algo model
-            print("\n")
-            dume_agents[agent].update()
-            dume_agents[agent].export_log(rdir = log_agent_dir, ep = ep) # Save dume log
-            dume_agents[agent].model_export(rdir = model_agent_dir) # Save dume model
-            print("\n")
-    
-        # Save main log
-        main_log_path = main_log_dir + f"/{ep}.csv"
-        main_log_df = pd.DataFrame(main_log)
-        main_log_df.to_csv(main_log_path)
-
-def valid():
-    pass
+            # Update Main Policy and DUME 
+            for agent in self.agent_names:
+                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].export_log(rdir = self.log_agent_dir, ep = ep) # Save main algo log
+                self.main_algo_agents[agent].model_export(rdir = self.model_agent_dir) # Save main algo model
+                print("\n")
+                self.dume_agents[agent].update()
+                self.dume_agents[agent].export_log(rdir = self.log_agent_dir, ep = ep) # Save dume log
+                self.dume_agents[agent].model_export(rdir = self.model_agent_dir) # Save dume model
+                print("\n")
+        
+            # Save main log
+            main_log_path = self.main_log_dir + f"/{ep}.csv"
+            main_log_df = pd.DataFrame(self.main_log)
+            main_log_df.to_csv(main_log_path)       
