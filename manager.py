@@ -19,16 +19,15 @@ class Training:
         # setup
         self.setup()
 
-    def train(self, agent_name:str = "first_0"):
+    def train(self):
         if self.args.train_type == "parallel":
             self.parallel()
         elif self.args.train_type == "single":
             self.single()
         elif self.args.train_type == "dumeonly":
-            self.dume_only(agent_name=agent_name)
+            self.dume_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "algoonly":
-            self.algo_only()
-            
+            self.algo_only(agent_name=self.args.agent_choose)            
     
     def setup(self):
         args_dict = vars(self.args)
