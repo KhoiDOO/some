@@ -2,7 +2,7 @@ import os, sys
 import argparse
 from datetime import datetime
 
-from manager import train
+from manager import Training
 
 if __name__ == '__main__':
     print("__main__")
@@ -19,6 +19,8 @@ if __name__ == '__main__':
         help="Discount factor")
     parser.add_argument("--view", type=float, default=1, 
         help="Area scale of partial observation varies in range of (0, 2)]")
+    parser.add_argument("--train_type", type=str, default="dumeonly", 
+        help="Type of training")        
     
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
@@ -58,6 +60,7 @@ if __name__ == '__main__':
     print(f"Total number of episodes {args.ep}")
     print(f"Discount Factor: {args.gamma}")
     print(f"Partial Observation Area Scale: {args.view}")
+    print(f"Type of training experiment: {args.train_type}")
 
     print(f"Agent: {args.agent}")
     print(f"Epochs: {args.epoches}")
@@ -75,4 +78,5 @@ if __name__ == '__main__':
     print(f"Dume Otimizer: {args.dume_opt}")
     print("=" * 80)
 
-    train(args)
+    train = Training(args=args)
+    train.train()
