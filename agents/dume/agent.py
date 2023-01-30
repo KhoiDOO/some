@@ -243,17 +243,17 @@ class DUME:
         for epoch in trange(self.epoches):
             for episode in range(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
-                    prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device)
-                    curr_obs = (self.rb_obs[episode][index+1:index+self.batch_size+1]/255).to(self.train_device)
-                    next_obs = (self.rb_obs[episode][index+2:index+self.batch_size+2]/255).to(self.train_device)
+                    prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device, dtype = torch.float)
+                    curr_obs = (self.rb_obs[episode][index+1:index+self.batch_size+1]/255).to(self.train_device, dtype = torch.float)
+                    next_obs = (self.rb_obs[episode][index+2:index+self.batch_size+2]/255).to(self.train_device, dtype = torch.float)
 
-                    prev_act = (self.rb_act[episode][index:index+self.batch_size]).to(self.train_device)
-                    curr_act = (self.rb_act[episode][index+1:index+self.batch_size+1]).to(self.train_device)
+                    prev_act = (self.rb_act[episode][index:index+self.batch_size]).to(self.train_device, dtype = torch.float)
+                    curr_act = (self.rb_act[episode][index+1:index+self.batch_size+1]).to(self.train_device, dtype = torch.float)
                     # next_act = self.rb_act[episode][index+2:index+self.batch_size+2]
 
-                    prev_rew = (self.rb_rew[episode][index:index+self.batch_size]).to(self.train_device)
-                    curr_rew = (self.rb_act[episode][index+1:index+self.batch_size+1]).to(self.train_device)
-                    next_rew = (self.rb_act[episode][index+2:index+self.batch_size+2]).to(self.train_device)
+                    prev_rew = (self.rb_rew[episode][index:index+self.batch_size]).to(self.train_device, dtype = torch.float)
+                    curr_rew = (self.rb_act[episode][index+1:index+self.batch_size+1]).to(self.train_device, dtype = torch.float)
+                    next_rew = (self.rb_act[episode][index+2:index+self.batch_size+2]).to(self.train_device, dtype = torch.float)
 
                     tel = self.task_encoder_loss(curr_obs, prev_obs, next_obs, prev_act, curr_act, prev_rew, curr_rew, next_rew)
 
