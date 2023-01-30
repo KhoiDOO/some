@@ -241,7 +241,7 @@ class DUME:
         print(f"DUME Update for agent {self.agent_name}")
 
         for epoch in trange(self.epoches):
-            for episode in trange(range(len(self.rb_obs))):
+            for episode in trange(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
                     prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device, dtype = torch.float)
                     curr_obs = (self.rb_obs[episode][index+1:index+self.batch_size+1]/255).to(self.train_device, dtype = torch.float)
