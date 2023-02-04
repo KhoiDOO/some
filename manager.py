@@ -58,7 +58,13 @@ class Training:
             json.dump(args_dict, outfile)
 
         self.env_name = args_dict["env"]
-        self.env_meta = args_dict["env_meta"]
+        self.stack_size = args_dict["stack_size"]
+        self.frame_size = args_dict["frame_size"]
+        self.parrallel = args_dict["parrallel"]
+        self.color_reduc = args_dict["color_reduc"]
+        self.render_mode = args_dict["render_mode"]
+        self.max_cycles = args_dict["max_cycles"]
+
         self.episodes = args_dict["ep"]
         self.gamma = args_dict["gamma"]
         self.p_size = args_dict["view"]
@@ -76,18 +82,14 @@ class Training:
         self.dume_lr = args_dict["dume_lr"]
         self.dume_optimizer = args_dict["dume_opt"]
 
-        # Create Env
-        self.default_env_meta_path = os.getcwd() + f"/envs/{self.env_name}/metadata/{self.env_meta}.json"
-
-        self.env_metadata = json.load(open(self.default_env_meta_path)) # get metadata for env
-        self.output_env = env_mapping[self.env_name](stack_size = self.env_metadata["stack_size"], frame_size = tuple(self.env_metadata["frame_size"]),
-                        max_cycles = self.env_metadata["max_cycles"], render_mode = self.env_metadata["render_mode"],
-                        parralel = self.env_metadata["parralel"], color_reduc=self.env_metadata["color_reduc"])
+        self.output_env = env_mapping[self.env_name](stack_size = self.stack_size, frame_size = tuple(self.frame_size),
+                        max_cycles = self.max_cycles, render_mode = self.render_mode,
+                        parralel = self.parrallel, color_reduc=self.color_reduc)
 
         self.agent_names = self.output_env.possible_agents
         
         self.main_algo_agents = {name : agent_mapping[self.agent_algo](
-            stack_size = self.env_metadata["stack_size"], 
+            stack_size = self.stack_size, 
             action_dim = self.output_env.action_space(self.output_env.possible_agents[0]).n, 
             lr_actor = self.actor_lr, 
             lr_critic = self.critic_lr, 
@@ -101,11 +103,11 @@ class Training:
         ) for name in self.agent_names}
 
         self.env_dume_def = {
-            "max_cycles" : self.env_metadata["max_cycles"],
+            "max_cycles" : self.max_cycles,
             "num_agents" : len(self.agent_names),
-            "stack_size" : self.env_metadata["stack_size"],
-            "single_frame_size" : (int(self.env_metadata["frame_size"][0]/2), 
-                                    int(self.env_metadata["frame_size"][1]/2))
+            "stack_size" : self.stack_size,
+            "single_frame_size" : (int(self.frame_size[0]/2), 
+                                    int(self.frame_size[1]/2))
         }
 
         if self.dume_in_use:
@@ -120,16 +122,6 @@ class Training:
                 train_device = self.train_device,
                 buffer_device = self.buffer_device
             ) for name in self.agent_names}
-        
-        # Log dict
-
-        self.main_log = {
-            "step" : [],
-            "first_0" : [],
-            "second_0" : [],
-            "third_0" : [],
-            "fourth_0" : []
-        }
 
     def single(self):
         pass
@@ -149,11 +141,15 @@ class Training:
 
                 obs_lst, act_lst, rew_lst = [], [], []
 
-                for step in range(self.env_metadata["max_cycles"]):
+                for step in range(self.max_cycles):
 
                     actions = {a : self.output_env.action_space(a).sample() for a in self.output_env.possible_agents}
 
-                    next_obs, rewards, termination, truncation, info = self.output_env.step(actions)
+                    next_obs, rewards, terms, truns, info = self.output_env.step(actions)
+
+                    rewards = {
+                        agent : step if agent in terms else 0 for agent in self.agent_names
+                    }
 
                     action = torch.tensor([actions[agent_name]])
 
@@ -165,9 +161,9 @@ class Training:
 
                     curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
                         -1, 
-                        self.env_metadata["stack_size"],
-                        self.env_metadata["frame_size"][0], 
-                        self.env_metadata["frame_size"][1]
+                        self.stack_size,
+                        self.frame_size[0], 
+                        self.frame_size[1]
                     ) 
 
                     agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
@@ -189,25 +185,45 @@ class Training:
 
     def algo_only(self):
 
-        main_algo = self.main_algo_agents["first_0"]
-
         for ep in trange(self.episodes):
 
             with torch.no_grad():
 
                 next_obs = self.output_env.reset(seed=None)
 
-                print(next_obs.shape)
+                for step in range(self.max_cycles):
 
-                return
+                    curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                            -1, 
+                            self.stack_size,
+                            self.frame_size[0], 
+                            self.frame_size[1]
+                        )
+                    
+                    actions = {
+                        agent : self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
+                    }
 
-                # action = main_algo.select_action(
-                #             base_agent_merge_obs.to(device=self.train_device, dtype=torch.float)
-                #         )
+                    next_obs, rewards, terms, truncs, infos = self.output_env.step(actions) # Update Environment
 
+                    rewards = {
+                        agent : step if agent in terms else 0 for agent in self.agent_names
+                    }
 
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+
+            for agent in self.agent_names:
+                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].export_log(rdir = self.log_agent_dir, ep = ep) # Save main algo log
+                self.main_algo_agents[agent].model_export(rdir = self.model_agent_dir) # Save main algo model
 
     def parallel(self): #Currently wrong
+
+        print("Currently this function is not available")
+
+        return
+
         # Training
         for ep in trange(self.episodes):
 

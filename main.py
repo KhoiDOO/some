@@ -11,15 +11,31 @@ if __name__ == '__main__':
     # Environment
     parser.add_argument("--env", type=str, default="warlords", choices=["warlords"],
         help="Environment used in training and testing")
-    parser.add_argument("--env_meta", type=str, default="v1",
-        help="Environment metadata version")
+
+    parser.add_argument("--render_mode", type=str, default=None, choices=[None, "rgb_array", "human"],
+        help="Mode of rendering")
+    parser.add_argument("--stack_size", type=int, default=4,
+        help="Number of stacking frames")
+    parser.add_argument("--max_cycles", type=int, default=124,
+        help="Number of step in one episode")
+    parser.add_argument("--frame_size", type=list, default=(64, 64),
+        help="Width and height of frame")
+    parser.add_argument("--parrallel", type=bool, default=True,
+        help="Process the environment in multi cpu core")
+    parser.add_argument("--color_reduc", type=bool, default=True,
+        help="Reduce color to grayscale")
+
     parser.add_argument("--ep", type=int, default=2,
         help="Total Episodes")
     parser.add_argument("--gamma", type=float, default=0.99, 
         help="Discount factor")
     parser.add_argument("--view", type=float, default=1, 
         help="Area scale of partial observation varies in range of (0, 2)]")
+    
+    
+    # Training
     parser.add_argument("--train_type", type=str, default="dumeonly", 
+        choices=["dumeonly", "parallel", "single", "algoonly"],
         help="Type of training")       
     parser.add_argument("--agent_choose", type=str, default="first_0", 
         help="Agent choosed for training, only availabel for dume or algo only mode")  
@@ -53,12 +69,16 @@ if __name__ == '__main__':
         help="Otimizer for DUME")
     args = parser.parse_args()
 
-    default_env_meta_path = os.getcwd() + f"/envs/{args.env}/metadata/{args.env_meta}.json"
-
     print("=" * 80)
     print("Summary of training process:")
     print(f"Environment: {args.env}")
-    print(f"Environment Metadata path: {default_env_meta_path}")
+    print(f"stack_size: {args.stack_size}")
+    print(f"frame_size: {args.frame_size}")
+    print(f"parrallel: {args.parrallel}")
+    print(f"color_reduc: {args.color_reduc}")
+    print(f"render_mode: {args.render_mode}")
+    print(f"max_cycles: {args.max_cycles}")
+
     print(f"Total number of episodes {args.ep}")
     print(f"Discount Factor: {args.gamma}")
     print(f"Partial Observation Area Scale: {args.view}")
