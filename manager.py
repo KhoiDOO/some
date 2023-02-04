@@ -27,7 +27,7 @@ class Training:
         elif self.args.train_type == "dumeonly":
             self.dume_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "algoonly":
-            self.algo_only(agent_name=self.args.agent_choose)            
+            self.algo_only()            
     
     def setup(self):
         args_dict = vars(self.args)
@@ -136,6 +136,9 @@ class Training:
     
     def dume_only(self, agent_name = "first_0"):
 
+        # Create Agent
+        dume_agent = self.dume_agents[agent_name]
+
         # Buffer Memory
         
         for ep in trange(self.episodes):
@@ -143,8 +146,6 @@ class Training:
             with torch.no_grad():
 
                 next_obs = self.output_env.reset(seed=None)
-
-                dume_agent = self.dume_agents[agent_name]
 
                 obs_lst, act_lst, rew_lst = [], [], []
 
@@ -187,7 +188,24 @@ class Training:
         dume_agent.model_export(rdir = self.model_agent_dir)
 
     def algo_only(self):
-        pass
+
+        main_algo = self.main_algo_agents["first_0"]
+
+        for ep in trange(self.episodes):
+
+            with torch.no_grad():
+
+                next_obs = self.output_env.reset(seed=None)
+
+                print(next_obs.shape)
+
+                return
+
+                # action = main_algo.select_action(
+                #             base_agent_merge_obs.to(device=self.train_device, dtype=torch.float)
+                #         )
+
+
 
     def parallel(self): #Currently wrong
         # Training
