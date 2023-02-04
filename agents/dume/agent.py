@@ -89,7 +89,6 @@ class DUME:
 
         # Track
         self.log = {
-            "episode" : [],
             "epoch" : [],
             "tel" : [],
             "sel" : [],
@@ -240,6 +239,8 @@ class DUME:
         # Log 
         print(f"DUME Update for agent {self.agent_name}")
 
+        self.brain.train()
+
         for epoch in trange(self.epoches):
             for episode in trange(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
@@ -277,9 +278,7 @@ class DUME:
                     al.backward(retain_graph=True)
                     self.optimizer.step()
 
-                    # print(f"tel: {tel.item()} - sel: {sel.item()} - rl: {rl.item()} - ol: {ol.item()} - al: {al.item()}")
                     self.logging(
-                        episode=episode,
                         epoch=epoch, 
                         tel = tel.item(), 
                         sel=sel.item(), 
@@ -288,8 +287,7 @@ class DUME:
                         al=al.item())
 
         # self.export_log("test.csv")
-    def logging(self, episode, epoch, tel, sel, rl, ol, al):
-        self.log["episode"].append(episode)
+    def logging(self, epoch, tel, sel, rl, ol, al):
         self.log["epoch"].append(epoch)
         self.log["tel"].append(tel)
         self.log["sel"].append(sel)
@@ -327,8 +325,8 @@ class DUME:
             dir (str): folder for saving model weights
         """
         filename = f"dume_{self.agent_name}"
-        filpath = rdir + f"/{filename}.pt"
-        torch.save(self.brain.state_dict(), filpath)
+        filepath = rdir + f"/{filename}.pt"
+        torch.save(self.brain.state_dict(), filepath)
 
     def task_latent_distance(self, z:torch.Tensor, z1:torch.Tensor = None, reg_weight: float=100):
         batch_size = z.shape[0]
