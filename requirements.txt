@@ -82,6 +82,7 @@ ptyprocess==0.7.0
 pure-eval==0.2.2
 pyarrow==11.0.0
 pycparser==2.21
+pygame==2.1.2
 Pygments==2.14.0
 pyparsing==3.0.9
 pyrsistent==0.19.3
