@@ -1,0 +1,7 @@
+{
+    "dume_first_0" : "path/to/dume/first_0/weight.pt",
+    "dume_second_0" : "path/to/dume/first_0/weight.pt",
+    "dume_third_0" : "path/to/dume/first_0/weight.pt",
+    "dume_fourth_0" : "path/to/dume/first_0/weight.pt",
+    "algo_ppo" : "datetime"
+}

@@ -38,7 +38,9 @@ if __name__ == '__main__':
         choices=["dumeonly", "parallel", "single", "algoonly"],
         help="Type of training")       
     parser.add_argument("--agent_choose", type=str, default="first_0", 
-        help="Agent choosed for training, only availabel for dume or algo only mode")  
+        help="Agent choosed for training, only availabel for dume or algo dumeonly mode")  
+    parser.add_argument("--script", type=str, default="sample", 
+        help="Agent choosed for training, only availabel for dume or algo dumeonly mode")  
     
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
