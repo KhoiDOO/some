@@ -56,6 +56,17 @@ class Training:
             json.dump(args_dict, outfile)
         with open(self.save_valid_set_path, "w") as outfile:
             json.dump(args_dict, outfile)
+        
+        # Logging
+
+        self.main_log = {
+            "ep" : [],
+            "step" : [],
+            "first_0" : [],
+            "second_0" : [],
+            "third_0" : [],
+            "fourth_0" : []
+        }
 
         self.env_name = args_dict["env"]
         self.stack_size = args_dict["stack_size"]
@@ -159,6 +170,9 @@ class Training:
 
                     rew_lst.append(reward)
 
+                    if len(list(terms.keys())) == 0:
+                        break
+
                     curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
                         -1, 
                         self.stack_size,
@@ -185,13 +199,13 @@ class Training:
 
     def algo_only(self):
 
-        for ep in trange(self.episodes):
+        for ep in range(self.episodes):
 
             with torch.no_grad():
 
                 next_obs = self.output_env.reset(seed=None)
 
-                for step in range(self.max_cycles):
+                for step in trange(self.max_cycles):
 
                     curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
                             -1, 
@@ -212,6 +226,9 @@ class Training:
 
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+
+                    if len(list(terms.keys())) == 0:
+                        break
 
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
