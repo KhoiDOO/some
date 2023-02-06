@@ -34,7 +34,7 @@ if __name__ == '__main__':
     
     # Training
     parser.add_argument("--train_type", type=str, default="dumeonly", 
-        choices=["dumeonly", "parallel", "single", "algoonly", "experiment"],
+        choices=["dumeonly", "parallel", "algoonly", "experiment"],
         help="Type of training")       
     parser.add_argument("--agent_choose", type=str, default="first_0", 
         choices=["first_0", "second_0", "third_0", "fourth_0"],

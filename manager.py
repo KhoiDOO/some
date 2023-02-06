@@ -22,8 +22,6 @@ class Training:
     def train(self):
         if self.args.train_type == "parallel":
             self.parallel()
-        elif self.args.train_type == "single":
-            self.single()
         elif self.args.train_type == "dumeonly":
             self.dume_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "algoonly":
@@ -135,9 +133,6 @@ class Training:
                 train_device = self.train_device,
                 buffer_device = self.buffer_device
             ) for name in self.agent_names}
-
-    def single(self):
-        print("This feature is not available")
 
     def experiment(self):
         
@@ -266,9 +261,9 @@ class Training:
             #     self.dume_agents[agent].model_export(rdir = self.model_agent_dir) # Save dume model
             #     print("\n")
         
-        main_log_path = self.main_log_dir + f"/main_log.parquet"
-        main_log_df = pd.DataFrame(self.main_log)
-        main_log_df.to_parquet(main_log_path)
+            main_log_path = self.main_log_dir + f"/{ep}.parquet"
+            main_log_df = pd.DataFrame(self.main_log)
+            main_log_df.to_parquet(main_log_path)
     
     def dume_only(self, agent_name = "first_0"):
 
