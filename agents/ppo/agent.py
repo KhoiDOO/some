@@ -103,6 +103,11 @@ class PPO:
 
         return action.item()
     
+    def make_action(self, obs: torch.Tensor):
+        with torch.no_grad():
+            action, action_logprob, obs_val = self.policy_old.act(obs.to(self.device, dtype=torch.float))
+        return action.item()
+    
     def insert_buffer(self, single_reward: int, single_is_terminals: bool):
         """Insert reward and terminal information to the buffer
 
