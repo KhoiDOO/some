@@ -217,7 +217,7 @@ class Training:
                         )                    
 
                         # Make action
-                        action = self.main_algo_agents[agent].select_action(
+                        action = self.main_algo_agents[agent].make_action(
                             base_agent_merge_obs.to(device=self.train_device, dtype=torch.float)
                         )
 
