@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument("--env", type=str, default="warlords", choices=["warlords"],
         help="Environment used in training and testing")
 
-    parser.add_argument("--render_mode", type=str, default=None, choices=[None, "rgb_array", "human"],
+    parser.add_argument("--render_mode", type=str, default=None, choices=["rgb_array", "human"],
         help="Mode of rendering")
     parser.add_argument("--stack_size", type=int, default=4,
         help="Number of stacking frames")
@@ -32,15 +32,15 @@ if __name__ == '__main__':
     parser.add_argument("--view", type=float, default=1, 
         help="Area scale of partial observation varies in range of (0, 2)]")
     
-    
     # Training
     parser.add_argument("--train_type", type=str, default="dumeonly", 
-        choices=["dumeonly", "parallel", "single", "algoonly"],
+        choices=["dumeonly", "parallel", "single", "algoonly", "experiment"],
         help="Type of training")       
     parser.add_argument("--agent_choose", type=str, default="first_0", 
+        choices=["first_0", "second_0", "third_0", "fourth_0"],
         help="Agent choosed for training, only availabel for dume or algo dumeonly mode")  
     parser.add_argument("--script", type=str, default="sample", 
-        help="Agent choosed for training, only availabel for dume or algo dumeonly mode")  
+        help="Script includes weight paths to model, only needed in experiment mode")  
     
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],

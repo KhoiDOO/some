@@ -1,7 +1,7 @@
 {
-    "dume_first_0" : "path/to/dume/first_0/weight.pt",
-    "dume_second_0" : "path/to/dume/first_0/weight.pt",
-    "dume_third_0" : "path/to/dume/first_0/weight.pt",
-    "dume_fourth_0" : "path/to/dume/first_0/weight.pt",
-    "algo_ppo" : "datetime"
+    "first_0" : "02-06-2023-07-29-41",
+    "second_0" : "02-06-2023-07-29-58",
+    "third_0" : "02-06-2023-07-30-24",
+    "fourth_0" : "02-06-2023-07-30-51",
+    "algo" : "02-06-2023-07-31-26"
 }
