@@ -68,6 +68,7 @@ class Training:
         self.episodes = args_dict["ep"]
         self.gamma = args_dict["gamma"]
         self.p_size = args_dict["view"]
+        self.fix_reward = args_dict["fix_reward"]
 
         self.agent_algo = args_dict["agent"]
         self.epoches = args_dict["epoches"]
@@ -232,9 +233,11 @@ class Training:
 
                     next_obs, rewards, terms, truncs, infos = self.output_env.step(actions) # Update Environment
 
-                    rewards = {
-                        agent : step if agent in terms else 0 for agent in self.agent_names
-                    }
+                    # Fix reward
+                    if self.fix_reward:
+                        rewards = {
+                            agent : step if agent in terms else 0 for agent in self.agent_names
+                        }
 
                     self.main_log["ep"].append(ep)
                     self.main_log["step"].append(step)
@@ -245,6 +248,13 @@ class Training:
                 
                     # for agent in rewards:
                     #     self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+
+                    # Reupdate buffer
+                    prev_act_buffer = curr_act_buffer
+                    prev_rew_buffer = curr_rew_buffer
+                    curr_rew_buffer = {
+                        agent : torch.Tensor([[rewards[agent]]]) for agent in rewards
+                    }
 
                     if len(list(terms.keys())) == 0:
                         break
@@ -284,9 +294,10 @@ class Training:
 
                     next_obs, rewards, terms, truns, info = self.output_env.step(actions)
 
-                    rewards = {
-                        agent : step if agent in terms else 0 for agent in self.agent_names
-                    }
+                    if self.fix_reward:
+                        rewards = {
+                            agent : step if agent in terms else 0 for agent in self.agent_names
+                        }
 
                     action = torch.tensor([actions[agent_name]])
 
@@ -346,9 +357,10 @@ class Training:
 
                     next_obs, rewards, terms, truncs, infos = self.output_env.step(actions) # Update Environment
 
-                    rewards = {
-                        agent : step if agent in terms else 0 for agent in self.agent_names
-                    }
+                    if self.fix_reward:
+                        rewards = {
+                            agent : step if agent in terms else 0 for agent in self.agent_names
+                        }
 
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
