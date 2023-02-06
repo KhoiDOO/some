@@ -27,7 +27,9 @@ class Training:
         elif self.args.train_type == "dumeonly":
             self.dume_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "algoonly":
-            self.algo_only()            
+            self.algo_only()  
+        elif self.args.train_type == "experiment":
+            self.experiment()          
     
     def setup(self):
         args_dict = vars(self.args)
@@ -135,7 +137,138 @@ class Training:
             ) for name in self.agent_names}
 
     def single(self):
-        pass
+        print("This feature is not available")
+
+    def experiment(self):
+        
+        # Setup
+        self.script_filename = self.args.script
+        self.script_path = os.getcwd() + f"/script/{self.script_filename}.json"
+
+        script_dict = json.load(open(self.script_path))
+
+        algo_date = script_dict["algo"]
+
+        dume_weight_paths = {
+            agent : os.getcwd() + f"/run/train/{script_dict[agent]}/weights/dume_{agent}.pt" for agent in self.agent_names
+        }
+
+        algo_weight_paths = {
+            agent : os.getcwd() + f"/run/train/{algo_date}/weights/ppo_{agent}.pt" for agent in self.agent_names
+        }
+
+        # Load weight
+
+        for agent in self.agent_names:
+            self.dume_agents[agent].brain.load_state_dict(torch.load(dume_weight_paths[agent]))
+            self.main_algo_agents[agent].policy_old.load_state_dict(torch.load(algo_weight_paths[agent]))
+
+        # Conduct experiment
+
+        for ep in trange(self.episodes):
+
+            with torch.no_grad():
+
+                next_obs = self.output_env.reset(seed=None)
+
+                curr_act_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+                prev_act_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+                curr_rew_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+                prev_rew_buffer = {agent : torch.zeros(1, 1) for agent in self.agent_names}
+
+                for step in range(self.max_cycles):
+
+                    curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                        -1, 
+                        self.stack_size,
+                        self.frame_size[0], 
+                        self.frame_size[1]
+                    )
+
+                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+
+                    for agent in self.agent_names:
+                        base_agent_curr_obs = agent_curr_obs[agent] # get obs specific to agent
+
+                        # self.dume_agents[others].add_memory(
+                        #             agent_curr_obs[others], 
+                        #             curr_act_buffer[others], 
+                        #             curr_rew_buffer[others])
+
+                        obs_merges = {
+                            agent : base_agent_curr_obs
+                        } # Create obs dict with restricted view
+
+                        for others in self.agent_names:
+                            if others != agent:
+                                pred_obs, \
+                                pred_act, \
+                                pred_rew, \
+                                skill_embedding, \
+                                task_embedding = self.dume_agents[others](
+                                    curr_obs = agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
+                                    curr_act = curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
+                                    prev_act = prev_act_buffer[others].to(device=self.train_device, dtype=torch.float),
+                                    prev_rew = prev_rew_buffer[others].to(device=self.train_device, dtype=torch.float)
+                                )
+
+                                # add others' predicted obs to obs_dict
+                                obs_merges[others] = pred_obs
+                        
+                        # Merge Observation
+                        base_agent_merge_obs = wardlord_partial_obs_merge(
+                            obs_merges = obs_merges,
+                            frame_size = tuple(self.frame_size),
+                            stack_size = self.stack_size,
+                            p_size = self.p_size
+                        )                    
+
+                        # Make action
+                        action = self.main_algo_agents[agent].select_action(
+                            base_agent_merge_obs.to(device=self.train_device, dtype=torch.float)
+                        )
+
+                        # Update buffer
+                        curr_act_buffer[agent] = torch.Tensor([[action]])
+                    
+                    # Extract action from buffer
+                    
+                    actions = {
+                        agent : int(curr_act_buffer[agent][0].item()) for agent in curr_act_buffer
+                    }
+
+                    next_obs, rewards, terms, truncs, infos = self.output_env.step(actions) # Update Environment
+
+                    rewards = {
+                        agent : step if agent in terms else 0 for agent in self.agent_names
+                    }
+
+                    self.main_log["ep"].append(ep)
+                    self.main_log["step"].append(step)
+                    self.main_log["first_0"].append(rewards["first_0"])
+                    self.main_log["second_0"].append(rewards["second_0"])
+                    self.main_log["third_0"].append(rewards["third_0"])
+                    self.main_log["fourth_0"].append(rewards["fourth_0"])
+                
+                    # for agent in rewards:
+                    #     self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+
+                    if len(list(terms.keys())) == 0:
+                        break
+                
+            # for agent in self.agent_names:
+            #     self.main_algo_agents[agent].update()
+            #     self.main_algo_agents[agent].export_log(rdir = self.log_agent_dir, ep = ep) # Save main algo log
+            #     self.main_algo_agents[agent].model_export(rdir = self.model_agent_dir) # Save main algo model
+            #     print("\n")
+            #     self.dume_agents[agent].update()
+            #     self.dume_agents[agent].export_log(rdir = self.log_agent_dir, ep = ep) # Save dume log
+            #     self.dume_agents[agent].model_export(rdir = self.model_agent_dir) # Save dume model
+            #     print("\n")
+        
+        main_log_path = self.main_log_dir + f"/main_log.parquet"
+        main_log_df = pd.DataFrame(self.main_log)
+        main_log_df.to_parquet(main_log_path)
     
     def dume_only(self, agent_name = "first_0"):
 
