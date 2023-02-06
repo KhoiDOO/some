@@ -55,18 +55,7 @@ class Training:
         with open(self.save_train_set_path, "w") as outfile:
             json.dump(args_dict, outfile)
         with open(self.save_valid_set_path, "w") as outfile:
-            json.dump(args_dict, outfile)
-        
-        # Logging
-
-        self.main_log = {
-            "ep" : [],
-            "step" : [],
-            "first_0" : [],
-            "second_0" : [],
-            "third_0" : [],
-            "fourth_0" : []
-        }
+            json.dump(args_dict, outfile)        
 
         self.env_name = args_dict["env"]
         self.stack_size = args_dict["stack_size"]
@@ -161,6 +150,15 @@ class Training:
         # Conduct experiment
 
         for ep in trange(self.episodes):
+
+            self.main_log = {
+                "ep" : [],
+                "step" : [],
+                "first_0" : [],
+                "second_0" : [],
+                "third_0" : [],
+                "fourth_0" : []
+            }
 
             with torch.no_grad():
 
