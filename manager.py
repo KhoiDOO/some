@@ -125,6 +125,9 @@ class Training:
             ) for name in self.agent_names}
 
     def experiment(self):
+
+        if not self.dume_in_use:
+            raise Exception("dume need to be True and included path to conduct experiment mode")
         
         # Setup
         self.script_filename = self.args.script
@@ -274,6 +277,9 @@ class Training:
             main_log_df.to_parquet(main_log_path)
     
     def dume_only(self, agent_name = "first_0"):
+
+        if not self.dume_in_use:
+            raise Exception("dume need to be True and included path to conduct experiment mode")
 
         # Create Agent
         dume_agent = self.dume_agents[agent_name]
