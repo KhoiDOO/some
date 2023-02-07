@@ -36,7 +36,7 @@ def batch_split(data: list, chunk_size):
 class PPO:
     def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.0003, 
                 lr_critic:float = 0.001, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
-                device:str = "cpu", optimizer:str = "Adam", batch_size:int = 16, 
+                device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
                 agent_name: str = None):
         """Constructor of PPO
 
