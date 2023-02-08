@@ -43,13 +43,13 @@ cd content/path/to/folder/some
 # Training helpdesk
 ```
 cd content/path/to/folder/some
-python main.py -h
+python main.py --help
 ```
 
 # Training 
 ```
 cd content/path/to/folder/some
-python main.py --env "warlords" --render_mode rgb_array --stack_size 4 --max_cycles 124 --parrallel True --color_reduc True --ep 10000 --gamma 0.99 --view 1 --train_type experiment --agent_choose "first_0" --script 20623 --agent ppo --epoches 50 --bs 4 --actor_lr 0.001 --critic_lr 0.0005 --opt Adam --dume True --dume_epoches 50 --dume_bs 4 --dume_lr 0.005 --dume_opt Adam
+python main.py --env "warlords" --render_mode rgb_array --stack_size 4 --max_cycles 124 --parallel True --color_reduction True --ep 10000 --gamma 0.99 --view 1 --train_type dual_experiment --agent_choose "first_0" --script 20623 --agent ppo --epochs 50 --bs 4 --actor_lr 0.001 --critic_lr 0.0005 --opt Adam --dume True --dume_epochs 50 --dume_bs 4 --dume_lr 0.005 --dume_opt Adam
 ```
 
 # Citation
