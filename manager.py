@@ -177,7 +177,6 @@ class Training:
                         rewards = {
                             agent: step if agent in terms else 0 for agent in self.agent_names
                         }
-                    print(rewards)
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
