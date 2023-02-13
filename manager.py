@@ -239,11 +239,6 @@ class Training:
                     for agent in self.agent_names:
                         base_agent_curr_obs = agent_curr_obs[agent]  # get obs specific to agent
 
-                        # self.dume_agents[others].add_memory(
-                        #             agent_curr_obs[others], 
-                        #             curr_act_buffer[others], 
-                        #             curr_rew_buffer[others])
-
                         obs_merges = {
                             agent: base_agent_curr_obs
                         }  # Create obs dict with restricted view
