@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     # Environment
-    parser.add_argument("--env", type=str, default="warlords", choices=["warlords"],
+    parser.add_argument("--env", type=str, default="warlords", choices=["warlords", "pong"],
                         help="Environment used in training and testing")
     parser.add_argument("--render_mode", type=str, default=None, choices=["rgb_array", "human"],
                         help="Mode of rendering")
@@ -32,8 +32,8 @@ if __name__ == '__main__':
 
     # Training
     parser.add_argument("--train_type", type=str, default="dume-only",
-                        choices=["train-dume-only", "train-parallel", "train-algo-only", "experiment_dual",
-                                 "experiment_algo"],
+                        choices=["train-dume-only", "train-parallel", "train-algo-only", "experiment-dual",
+                                 "experiment-algo"],
                         help="Type of training")
     parser.add_argument("--agent_choose", type=str, default="first_0",
                         choices=["first_0", "second_0", "third_0", "fourth_0"],

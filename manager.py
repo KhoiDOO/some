@@ -9,8 +9,6 @@ import torch
 from tqdm import trange
 import pandas as pd
 
-from envs.warlords.warlord_env import wardlord_coordinate_obs, wardlord_partial_obs_merge
-
 
 class Training:
     def __init__(self, args: argparse.PARSER) -> None:
@@ -123,9 +121,9 @@ class Training:
             self.train_dume_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "train-algo-only":
             self.train_algo_only()
-        elif self.args.train_type == "experiment_dual":
+        elif self.args.train_type == "experiment-dual":
             self.experiment_dual()
-        elif self.args.train_type == "experiment_algo":
+        elif self.args.train_type == "experiment-algo":
             self.experiment_algo()
 
     def experiment_algo(self):
@@ -180,10 +178,12 @@ class Training:
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    main_log["first_0"].append(rewards["first_0"])
-                    main_log["second_0"].append(rewards["second_0"])
-                    main_log["third_0"].append(rewards["third_0"])
-                    main_log["fourth_0"].append(rewards["fourth_0"])
+                    # main_log["first_0"].append(rewards["first_0"])
+                    # main_log["second_0"].append(rewards["second_0"])
+                    # main_log["third_0"].append(rewards["third_0"])
+                    # main_log["fourth_0"].append(rewards["fourth_0"])
+                    for agent in self.agent_names:
+                        main_log[agent].append(rewards[agent])
 
                     if len(list(terms.keys())) == 0:
                         break
@@ -252,7 +252,7 @@ class Training:
                         self.frame_size[1]
                     )
 
-                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
 
                     for agent in self.agent_names:
                         base_agent_curr_obs = agent_curr_obs[agent]  # get obs specific to agent
@@ -268,7 +268,7 @@ class Training:
 
                         for others in self.agent_names:
                             if others != agent:
-                                predict_obs, _, _, _, _ = self.dume_agents[others](
+                                predict_obs, _ = self.dume_agents[others](
                                     curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
                                     curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
                                     prev_act=prev_act_buffer[others].to(device=self.train_device, dtype=torch.float),
@@ -279,7 +279,7 @@ class Training:
                                 obs_merges[others] = predict_obs
 
                         # Merge Observation
-                        base_agent_merge_obs = wardlord_partial_obs_merge(
+                        base_agent_merge_obs = env_parobs_merge_mapping[self.env_name](
                             obs_merges=obs_merges,
                             frame_size=tuple(self.frame_size),
                             stack_size=self.stack_size,
@@ -310,10 +310,12 @@ class Training:
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    main_log["first_0"].append(rewards["first_0"])
-                    main_log["second_0"].append(rewards["second_0"])
-                    main_log["third_0"].append(rewards["third_0"])
-                    main_log["fourth_0"].append(rewards["fourth_0"])
+                    # main_log["first_0"].append(rewards["first_0"])
+                    # main_log["second_0"].append(rewards["second_0"])
+                    # main_log["third_0"].append(rewards["third_0"])
+                    # main_log["fourth_0"].append(rewards["fourth_0"])
+                    for agent in self.agent_names:
+                        main_log[agent].append(rewards[agent])
 
                     # Re-update buffer
                     prev_act_buffer = curr_act_buffer
@@ -376,7 +378,7 @@ class Training:
                         self.frame_size[1]
                     )
 
-                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
 
                     obs_used = agent_curr_obs[agent_name][0]
 
@@ -465,7 +467,7 @@ class Training:
                         self.frame_size[1]
                     )
 
-                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
 
                     for agent in self.agent_names:
                         base_agent_curr_obs = agent_curr_obs[agent]  # get obs specific to agent
@@ -483,7 +485,7 @@ class Training:
                                     curr_rew_buffer[others])
 
                                 # Get predicted information by dume
-                                predict_obs, _, _, _, _ = self.dume_agents[
+                                predict_obs, _ = self.dume_agents[
                                     others](
                                     curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
                                     curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
@@ -495,7 +497,7 @@ class Training:
                                 obs_merges[others] = predict_obs
 
                         # Merge Observation
-                        base_agent_merge_obs = wardlord_partial_obs_merge(
+                        base_agent_merge_obs = env_parobs_merge_mapping[self.env_name](
                             obs_merges=obs_merges,
                             frame_size=tuple(self.frame_size),
                             stack_size=self.stack_size,
