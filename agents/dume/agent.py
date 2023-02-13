@@ -46,12 +46,12 @@ class DUME_Brain(nn.Module):
         Returns:
             tuple: Tuple of predicted observation, predicted action, predicted reward, skill embedding, task embedding
         """
-        skill_embedding, obs_skill_encoded = self.skill_encoder(curr_obs, curr_act)
-        pred_act = self.skill_decoder(obs_skill_encoded.to(device), skill_embedding.to(device))     
+        # skill_embedding, obs_skill_encoded = self.skill_encoder(curr_obs, curr_act)
+        # pred_act = self.skill_decoder(obs_skill_encoded.to(device), skill_embedding.to(device))     
         task_embedding, obs_task_encoded = self.task_encoder(curr_obs, prev_act, prev_rew)
         pred_obs = self.obs_decoder(obs_task_encoded.to(device), curr_act, task_embedding.to(device))
         pred_rew = self.rew_decoder(obs_task_encoded.to(device), curr_act, task_embedding.to(device))
-        return (pred_obs, pred_act, pred_rew, skill_embedding, task_embedding)
+        return (pred_obs, pred_rew)
 
 
 class DUME:
@@ -187,12 +187,12 @@ class DUME:
         pred_rew = test_rew_decoder(obs_task_encoded, curr_act, task_embedding)
         print(f"pred_rew: {pred_rew.shape}")
 
-        pred_obs, pred_act, pred_rew, skill_emb, task_emb = self(curr_obs, prev_act, curr_act, prev_rew)
+        pred_obs, pred_rew = self(curr_obs, prev_act, curr_act, prev_rew)
         print(f"pred obs: {pred_obs.shape}")
-        print(f"pred act: {pred_act.shape}")
+        # print(f"pred act: {pred_act.shape}")
         print(f"pred rew: {pred_rew.shape}")
-        print(f"skill_emb: {skill_emb.shape}")
-        print(f"task_emb: {task_emb.shape}")
+        # print(f"skill_emb: {skill_emb.shape}")
+        # print(f"task_emb: {task_emb.shape}")
 
         self.fake_memory()
         
