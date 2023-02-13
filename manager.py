@@ -143,14 +143,7 @@ class Training:
 
         for ep in trange(self.episodes):
 
-            main_log = {
-                "ep": [],
-                "step": [],
-                "first_0": [],
-                "second_0": [],
-                "third_0": [],
-                "fourth_0": []
-            }
+            main_log = log_mapping[self.env_name]
 
             with torch.no_grad():
 
@@ -178,10 +171,6 @@ class Training:
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    # main_log["first_0"].append(rewards["first_0"])
-                    # main_log["second_0"].append(rewards["second_0"])
-                    # main_log["third_0"].append(rewards["third_0"])
-                    # main_log["fourth_0"].append(rewards["fourth_0"])
                     for agent in self.agent_names:
                         main_log[agent].append(rewards[agent])
 
@@ -225,14 +214,7 @@ class Training:
 
         for ep in trange(self.episodes):
 
-            main_log = {
-                "ep": [],
-                "step": [],
-                "first_0": [],
-                "second_0": [],
-                "third_0": [],
-                "fourth_0": []
-            }
+            main_log = log_mapping[self.env_name]
 
             with torch.no_grad():
 
@@ -310,10 +292,6 @@ class Training:
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    # main_log["first_0"].append(rewards["first_0"])
-                    # main_log["second_0"].append(rewards["second_0"])
-                    # main_log["third_0"].append(rewards["third_0"])
-                    # main_log["fourth_0"].append(rewards["fourth_0"])
                     for agent in self.agent_names:
                         main_log[agent].append(rewards[agent])
 
@@ -439,14 +417,7 @@ class Training:
         # Training
         for ep in trange(self.episodes):
 
-            main_log = {
-                "ep": [],
-                "step": [],
-                "first_0": [],
-                "second_0": [],
-                "third_0": [],
-                "fourth_0": []
-            }
+            main_log = log_mapping[self.env_name]
 
             with torch.no_grad():
 
@@ -528,10 +499,8 @@ class Training:
                     # Logging
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    main_log["first_0"].append(rewards["first_0"])
-                    main_log["second_0"].append(rewards["second_0"])
-                    main_log["third_0"].append(rewards["third_0"])
-                    main_log["fourth_0"].append(rewards["fourth_0"])
+                    for agent in self.agent_names:
+                        main_log[agent].append(rewards[agent])
 
                     # Update Main Algo Memory
                     for agent in rewards:
