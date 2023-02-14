@@ -14,6 +14,93 @@ render_mode = "rgb_array"
 parralel = True
 color_reduc = True
 
+def coop_pong_coordinate_obs(obs: torch.Tensor, p_size = 1):
+    """ Calculate the coordinate observation
+
+    Args:
+        obs (torch.Tensor): Full Observation. Size of [None, stack_size, height, width]
+        p_size (int): scale size of observation, max(p_size) = 2
+
+    Returns:
+        dict[str : torch.Tensor]: dict of coordinate observation which has size of (height/2, width/2) and 
+        the position is based on agent position
+
+        # Agent Position
+            # paddle_0 -> left
+            # paddle_1 -> right
+    """
+
+    obs = torch.transpose(obs, 2, 3)
+
+    mid = int(obs.shape[-1]/2)
+
+    agent_obs = {
+        "paddle_0" : obs[:, :, :mid*p_size, :],
+        "paddle_1" : obs[:, :, 1 - mid*p_size:, :]
+    }
+
+    return agent_obs
+
+def coop_pong_partial_obs_merge(obs_merges, 
+                                frame_size: tuple = (64, 64),
+                                stack_size: int = 4, p_size = 1):
+    """return merged observation
+
+    Args:
+        obs_merges (dict[str: torch.Tensor]): dictionary of observation
+        frame_size (tuple, optional): Frame Size. Defaults to (64, 64).
+        stack_size (int, optional): Number of frames stacked. Defaults to 4.
+
+    Returns:
+        _type_: _description_
+    """
+    first_0 = obs_merges["paddle_0"]
+
+    mid = int(first_0.shape[-1]/2)
+
+    output_obs = torch.zeros((first_0.shape[0], stack_size, frame_size[0], frame_size[1]))
+
+    output_obs[:, :, :mid*p_size, :] = obs_merges["paddle_0"]
+    output_obs[:, :, 1 - mid*p_size:, :] = obs_merges["paddle_1"]
+
+    return output_obs.to(torch.uint8)
+
+def test_coordinate_obs(obs: torch.Tensor):
+    """ return coordinate observation
+
+    Args:
+        obs (torch.Tensor): Full Observation: Size of [None, stack_size, height, width]
+    """
+
+    obs_dict = coop_pong_coordinate_obs(obs)
+
+    for agent in obs_dict:
+        print(f"{agent} - {obs_dict[agent].shape}")
+
+        agent_obs = obs_dict[agent][0].permute(-1, 1, 0).numpy()
+        print(f"agent_obs: {np.unique(agent_obs)} - {agent_obs.dtype}")
+
+        cv.imshow(agent, agent_obs)
+        cv.waitKey(0)
+
+    full_obs = coop_pong_partial_obs_merge(obs_dict)
+    print("full_obs - {}".format(full_obs.shape))
+
+    full_obs = full_obs[0].permute(-1, 1, 0).numpy()
+    print(f"full_obs: {np.unique(full_obs)} - {full_obs.dtype}")
+
+    cv.imshow("Full", full_obs)
+    cv.waitKey(0)
+
+def batchify(x, device = 'cpu'):
+    """Converts PZ style returns to batch of torch arrays."""
+    # convert to list of np arrays
+    x = np.stack([x[a] for a in x], axis=0)
+    # convert to torch
+    x = torch.tensor(x).to(device)
+
+    return x
+
 def coop_pong_env_build(stack_size: int = stack_size, frame_size: tuple = frame_size,
                         max_cycles: int = max_cycles, render_mode: str = render_mode,
                         parralel: bool = parralel, color_reduc: bool = color_reduc):
@@ -91,7 +178,7 @@ if __name__ == '__main__':
     env.reset()
 
     # render_array = env.render()
-    # cv.imwrite(os.getcwd() + "/envs/pong/render.jpg", render_array)
+    # cv.imwrite(os.getcwd() + "/envs/cooperative_pong/render.jpg", render_array)
 
     # actions = {a : env.action_space(a).sample() for a in env.possible_agents}
     # print("Action: {}".format(actions))
@@ -102,13 +189,20 @@ if __name__ == '__main__':
     #         actions = {a : env.action_space(a).sample() for a in env.possible_agents}
     #         observation, reward, termination, truncation, info = env.step(actions)
     #     obs = observation[agent]
-    #     cv.imwrite(os.getcwd() + f"/envs/pong/obs_{agent}.jpg", obs)
+    #     cv.imwrite(os.getcwd() + f"/envs/cooperative_pong/obs_{agent}.jpg", obs)
 
     observation = 0
-    for i in range(2000):
-        render_array = env.render()
-        actions = {
-            'paddle_0': env.action_space('paddle_0').sample(), 
-            'paddle_1': env.action_space('paddle_0').sample()
-        }
-        observation, reward, termination, truncation, info = env.step(actions)
+    for i in range(100):
+        env.reset()
+        for step in range(2000):
+            render_array = env.render()
+            actions = {
+                'paddle_0': env.action_space('paddle_0').sample(), 
+                'paddle_1': env.action_space('paddle_0').sample()
+            }
+            observation, reward, termination, truncation, info = env.step(actions)
+    
+    # Agent Position
+    # paddle_0 -> left
+    # paddle_1 -> right
+
