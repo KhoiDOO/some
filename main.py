@@ -44,6 +44,8 @@ if __name__ == '__main__':
                              "for conducting custom experiment", choices=["sample", "20623"])
     parser.add_argument("--fix_reward", type=bool, default=False,
                         help="Make reward by step")
+    parser.add_argument("--buffer_device", type=str, default="cpu",
+                        help="Device used for memory replay")
 
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
@@ -89,6 +91,7 @@ if __name__ == '__main__':
     print(f"Agent chose in dume-only mode: {args.agent_choose}")
     print(f"Script used in experiment mode: {args.script}")
     print(f"Fix reward function status: {args.fix_reward}")
+    print(f"Buffer device: {args.buffer_device}")
 
     print(f"Agent: {args.agent}")
     print(f"Epochs: {args.epochs}")

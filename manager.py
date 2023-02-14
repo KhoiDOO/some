@@ -22,7 +22,7 @@ class Training:
 
         # device setup
         self.train_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.buffer_device = "cpu"
+        self.buffer_device = args_dict["buffer_device"]
 
         # verify
         run_folder_verify(self.current_time)
@@ -174,7 +174,7 @@ class Training:
                     for agent in self.agent_names:
                         main_log[agent].append(rewards[agent])
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 0:
                         break
 
             # Save main log
@@ -297,7 +297,7 @@ class Training:
                         agent: torch.Tensor([[rewards[agent]]]) for agent in rewards
                     }
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
             main_log_path = self.main_log_dir + f"/{ep}.parquet"
@@ -341,7 +341,7 @@ class Training:
 
                     rew_lst.append(reward)
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
                     curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
@@ -399,7 +399,7 @@ class Training:
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
             for agent in self.agent_names:
