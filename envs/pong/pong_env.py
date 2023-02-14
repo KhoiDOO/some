@@ -177,13 +177,13 @@ if __name__ == '__main__':
     
     env.reset()
 
-    render_array = env.render()
+    # render_array = env.render()
     # cv.imwrite(os.getcwd() + "/envs/pong/render.jpg", render_array)
 
-    actions = {a : env.action_space(a).sample() for a in env.possible_agents}
-    print("Action: {}".format(actions))
+    # actions = {a : env.action_space(a).sample() for a in env.possible_agents}
+    # print("Action: {}".format(actions))
 
-    agents = env.possible_agents
+    # agents = env.possible_agents
     # for agent in agents:
     #     for i in range(10):
     #         actions = {a : env.action_space(a).sample() for a in env.possible_agents}
@@ -192,10 +192,11 @@ if __name__ == '__main__':
     #     cv.imwrite(os.getcwd() + f"/envs/pong/obs_{agent}.jpg", obs)
     
     observation = 0
-    for i in range(100):
+    for i in range(2000):
+        render_array = env.render()
         actions = {
             'first_0': env.action_space('first_0').sample(), 
-            'second_0': 0
+            'second_0': env.action_space('first_0').sample()
         }
         observation, reward, termination, truncation, info = env.step(actions)
     
