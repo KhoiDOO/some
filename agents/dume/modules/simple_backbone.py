@@ -80,13 +80,19 @@ class SimpleEncoder(nn.Module):
             nn.MaxPool2d(2),
             nn.ReLU(),
             # 32 * 1 * 1
-            nn.Flatten(),
-            _layer_init(nn.Linear(32, outchannel)),
-            nn.ReLU(),
+            # nn.AdaptiveAvgPool2d((None, 32)),
+            # _layer_init(nn.Linear(32, outchannel)),
+            # nn.ReLU(),
         )
-
+        self.outer = nn.Sequential(
+            _layer_init(nn.Linear(32, outchannel)),
+            nn.ReLU()
+        )
+        
     def forward(self, x):
-        return self.network(x)
+        x = self.network(x)
+        x = x.mean(dim=(-2, -1))
+        return self.outer(x)
 
 class SimpleDecoder(nn.Module):
     def __init__(self, inchannel: int) -> None:
