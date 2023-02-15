@@ -1,22 +1,26 @@
 from envs.warlords.warlord_env import *
 from envs.pong.pong_env import *
+from envs.cooperative_pong.coop_pong_env import *
 from torch import optim
 from agents.ppo.agent import PPO
 from agents.dume.agent import DUME
 
 env_mapping = {
     "warlords" : wardlord_env_build,
-    "pong" : pong_env_build
+    "pong" : pong_env_build,
+    "coop-pong" : coop_pong_env_build
 }
 
 env_parobs_mapping = {
     "warlords" : wardlord_coordinate_obs,
-    "pong" : pong_coordinate_obs
+    "pong" : pong_coordinate_obs,
+    "coop-pong" : coop_pong_coordinate_obs
 }
 
 env_parobs_merge_mapping = {
     "warlords" : wardlord_partial_obs_merge,
-    "pong" : pong_partial_obs_merge
+    "pong" : pong_partial_obs_merge,
+    "coop-pong" : coop_pong_partial_obs_merge
 }
 
 log_mapping = {
@@ -33,6 +37,12 @@ log_mapping = {
         "step" : [],
         "first_0" : [],
         "second_0" : []
+    },
+    "coop-pong" : {
+        "ep" : [],
+        "step" : [],
+        "paddle_0" : [],
+        "paddle_1" : []
     }
 }
 

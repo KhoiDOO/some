@@ -174,7 +174,7 @@ class Training:
                     for agent in self.agent_names:
                         main_log[agent].append(rewards[agent])
 
-                    if len(list(terms.keys())) <= 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
             # Save main log
