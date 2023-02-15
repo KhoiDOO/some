@@ -36,7 +36,7 @@ def coop_pong_coordinate_obs(obs: torch.Tensor, p_size = 1):
 
     agent_obs = {
         "paddle_0" : obs[:, :, :mid*p_size, :],
-        "paddle_1" : obs[:, :, 1 - mid*p_size:, :]
+        "paddle_1" : obs[:, :, obs.shape[-1] - mid*p_size:, :]
     }
 
     return agent_obs
@@ -61,7 +61,7 @@ def coop_pong_partial_obs_merge(obs_merges,
     output_obs = torch.zeros((first_0.shape[0], stack_size, frame_size[0], frame_size[1]))
 
     output_obs[:, :, :mid*p_size, :] = obs_merges["paddle_0"]
-    output_obs[:, :, 1 - mid*p_size:, :] = obs_merges["paddle_1"]
+    output_obs[:, :, first_0.shape[-1] - mid*p_size:, :] = obs_merges["paddle_1"]
 
     return output_obs.to(torch.uint8)
 
@@ -191,18 +191,41 @@ if __name__ == '__main__':
     #     obs = observation[agent]
     #     cv.imwrite(os.getcwd() + f"/envs/cooperative_pong/obs_{agent}.jpg", obs)
 
-    observation = 0
-    for i in range(100):
-        env.reset()
-        for step in range(2000):
-            render_array = env.render()
+    # observation = 0
+    for i in range(10):
+        observation = env.reset()
+        for step in range(124):
+            # render_array = env.render()
             actions = {
                 'paddle_0': env.action_space('paddle_0').sample(), 
                 'paddle_1': env.action_space('paddle_0').sample()
             }
             observation, reward, termination, truncation, info = env.step(actions)
+
+            break
+
+            print(observation.keys())
+
+            if len(list(reward.keys())) == 0:
+                break
     
     # Agent Position
     # paddle_0 -> left
     # paddle_1 -> right
 
+    observation = batchify(observation)
+
+    print("observation: {}".format(observation.shape))
+
+    test_draw = observation[0] #.permute(-1, 1, 0).numpy()
+
+    print("first-obs: {}".format(test_draw.shape))
+
+    cv.imshow("Source", test_draw.numpy())
+    cv.waitKey(0)
+
+    observation = observation.permute(0, -1, 1, 2)[0].view(-1, 4, 64, 64)
+
+    print(observation.shape)
+
+    test_coordinate_obs(observation)
