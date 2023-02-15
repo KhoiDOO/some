@@ -397,7 +397,7 @@ class Training:
                         }
 
                     if len(list(terms.keys())) <= 1:
-                        break
+                        break   
 
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
