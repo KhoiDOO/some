@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("--script", type=str, default="sample",
                         help="Script includes weight paths to model, only needed in experiment mode, "
                              "detail in /script folder, create your_setting.json same as sample.json "
-                             "for conducting custom experiment", choices=["sample", "20623"])
+                             "for conducting custom experiment")
     parser.add_argument("--fix_reward", type=bool, default=False,
                         help="Make reward by step")
     parser.add_argument("--buffer_device", type=str, default="cpu",
