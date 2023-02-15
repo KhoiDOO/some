@@ -396,11 +396,11 @@ class Training:
                             agent: step if agent in terms else 0 for agent in self.agent_names
                         }
 
-                    for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
-
                     if len(list(terms.keys())) <= 1:
                         break
+
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
 
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
@@ -497,10 +497,6 @@ class Training:
                     for agent in self.agent_names:
                         main_log[agent].append(rewards[agent])
 
-                    # Update Main Algo Memory
-                    for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
-
                     # Update buffer
                     prev_act_buffer = curr_act_buffer
                     prev_rew_buffer = curr_rew_buffer
@@ -508,8 +504,12 @@ class Training:
                         agent: torch.Tensor([[rewards[agent]]]) for agent in rewards
                     }
 
-                    if any([terms[a] for a in terms]) or any([truncation[a] for a in truncation]):
+                    if len(list(rewards.keys())) <= 1:
                         break
+
+                    # Update Main Algo Memory
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
 
             # Update Main Policy and DUME 
             for agent in self.agent_names:
