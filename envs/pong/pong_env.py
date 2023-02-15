@@ -36,7 +36,7 @@ def pong_coordinate_obs(obs: torch.Tensor, p_size = 1):
 
     agent_obs = {
         "first_0" : obs[:, :, :mid*p_size, :],
-        "second_0" : obs[:, :, 1 - mid*p_size:, :]
+        "second_0" : obs[:, :, obs.shape[-1] - mid*p_size:, :]
     }
 
     return agent_obs
@@ -61,7 +61,7 @@ def pong_partial_obs_merge(obs_merges,
     output_obs = torch.zeros((first_0.shape[0], stack_size, frame_size[0], frame_size[1]))
 
     output_obs[:, :, :mid*p_size, :] = obs_merges["first_0"]
-    output_obs[:, :, 1 - mid*p_size:, :] = obs_merges["second_0"]
+    output_obs[:, :, first_0.shape[-1] - mid*p_size:, :] = obs_merges["second_0"]
 
     return output_obs.to(torch.uint8)
 
@@ -177,28 +177,30 @@ if __name__ == '__main__':
     
     env.reset()
 
-    # render_array = env.render()
-    # cv.imwrite(os.getcwd() + "/envs/pong/render.jpg", render_array)
+    render_array = env.render()
+    cv.imwrite(os.getcwd() + "/envs/pong/render.jpg", render_array)
 
-    # actions = {a : env.action_space(a).sample() for a in env.possible_agents}
-    # print("Action: {}".format(actions))
+    actions = {a : env.action_space(a).sample() for a in env.possible_agents}
+    print("Action: {}".format(actions))
 
-    # agents = env.possible_agents
-    # for agent in agents:
-    #     for i in range(10):
-    #         actions = {a : env.action_space(a).sample() for a in env.possible_agents}
-    #         observation, reward, termination, truncation, info = env.step(actions)
-    #     obs = observation[agent]
-    #     cv.imwrite(os.getcwd() + f"/envs/pong/obs_{agent}.jpg", obs)
+    agents = env.possible_agents
+    for agent in agents:
+        for i in range(10):
+            actions = {a : env.action_space(a).sample() for a in env.possible_agents}
+            observation, reward, termination, truncation, info = env.step(actions)
+        obs = observation[agent]
+        cv.imwrite(os.getcwd() + f"/envs/pong/obs_{agent}.jpg", obs)
     
     observation = 0
-    for i in range(2000):
+    for i in range(124):
         render_array = env.render()
         actions = {
             'first_0': env.action_space('first_0').sample(), 
             'second_0': env.action_space('first_0').sample()
         }
         observation, reward, termination, truncation, info = env.step(actions)
+
+        break
     
     # Agent Position
     # first_0 -> right
