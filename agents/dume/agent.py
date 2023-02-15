@@ -108,7 +108,6 @@ class DUME:
             rews (torch.Tensor): Reward or batch of reward gained. Size of [max_cycle, 1]
         """
         self.rb_obs.append(self.resize(obs))
-        print(self.resize(obs).shape)
         self.rb_act.append(acts)
         self.rb_rew.append(rews)
     
