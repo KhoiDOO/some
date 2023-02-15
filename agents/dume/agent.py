@@ -2,6 +2,7 @@ import os, sys
 sys.path.append(os.getcwd())
 import torch
 from torch import nn 
+from torchvision.transforms import Resize
 from torch import optim
 import pandas as pd
 from utils.mapping import *
@@ -81,6 +82,7 @@ class DUME:
         self.agent_name = agent_name
         self.epoches = epoches
         self.env_dict = env_dict
+        self.resize = Resize(size=32)
 
         # memory replay
         self.rb_obs = list()
@@ -105,7 +107,7 @@ class DUME:
             acts (torch.Tensor): Action or batch of action. Size of [max_cycle, 1]
             rews (torch.Tensor): Reward or batch of reward gained. Size of [max_cycle, 1]
         """
-        self.rb_obs.append(obs)
+        self.rb_obs.append(self.resize(obs))
         self.rb_act.append(acts)
         self.rb_rew.append(rews)
     
