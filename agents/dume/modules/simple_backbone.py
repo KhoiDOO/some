@@ -2,6 +2,7 @@ import os, sys
 sys.path.append(os.getcwd())
 import torch
 from torch import nn
+from torchvision.transforms import Resize
 import numpy as np
 from typing import Dict, List, Tuple, Type, Union, Sequence, Callable, Optional, Any
 from envs.warlords.warlord_env import wardlord_env_build
@@ -67,6 +68,7 @@ class SimpleEncoder(nn.Module):
     def __init__(self, inchannel: int, outchannel: int) -> None:        
         super().__init__()
         self.network = nn.Sequential(
+            Resize(size = 32),
             # inchannel * 32 * 32
             _layer_init(nn.Conv2d(inchannel, 8, 5)),
             nn.MaxPool2d(2),
