@@ -125,6 +125,80 @@ class Training:
             self.experiment_dual()
         elif self.args.train_type == "experiment-algo":
             self.experiment_algo()
+        elif self.args.train_type == "pong-algo-only":
+            self.pong_algo_only()
+
+    def pong_algo_only(self):
+
+        # Train and logging in parallel
+        if self.env_name != "pong":
+            raise Exception(f"Env must be pong but found {self.env_name} instead")
+        
+        for ep in trange(self.episodes):
+
+            main_log = log_mapping[self.env_name]
+
+            reward_step = {
+                agent : 0 for agent in self.agent_names
+            }
+
+            with torch.no_grad():
+
+                next_obs = self.output_env.reset(seed=None)
+
+                for step in range(self.max_cycles):
+
+                    curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                        -1,
+                        self.stack_size,
+                        self.frame_size[0],
+                        self.frame_size[1]
+                    )
+
+                    actions = {
+                        agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
+                    }
+
+                    next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
+
+                    # Log step 
+                    if self.fix_reward:
+                        print(rewards)
+                        for agent in self.agent_names:
+                            reward_step[agent] += 1
+
+                        main_log["ep"].append(ep)
+                        main_log["step"].append(step)
+                        for agent in self.agent_names:
+                            main_log[agent].append(reward_step[agent])
+                        
+                        for agent in self.agent_names:
+                            if rewards[agent] == -1:
+                                reward_step[agent] = 0
+                        
+                        for agent in self.agent_names:
+                            rewards[agent] = 0 - rewards[agent]
+                        
+                        print(reward_step)
+                        print(rewards)
+                    else:
+                        main_log["ep"].append(ep)
+                        main_log["step"].append(step)
+                        for agent in self.agent_names:
+                            main_log[agent].append(reward_step[agent])
+                    
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+
+            for agent in self.agent_names:
+                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
+                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
+            
+            main_log_path = self.main_log_dir + f"/{ep}.parquet"
+            main_log_df = pd.DataFrame(main_log)
+            main_log_df.to_parquet(main_log_path)
+                    
 
     def experiment_algo(self):
 
