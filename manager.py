@@ -145,8 +145,6 @@ class Training:
                 "second_0" : []
             }
 
-            print(main_log)
-
             reward_step = {
                 agent : 0 for agent in self.agent_names
             }
