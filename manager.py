@@ -163,7 +163,6 @@ class Training:
 
                     # Log step 
                     if self.fix_reward:
-                        print(rewards)
                         for agent in self.agent_names:
                             reward_step[agent] += 1
 
@@ -178,9 +177,6 @@ class Training:
                         
                         for agent in self.agent_names:
                             rewards[agent] = 0 - rewards[agent]
-                        
-                        print(reward_step)
-                        print(rewards)
                     else:
                         main_log["ep"].append(ep)
                         main_log["step"].append(step)
