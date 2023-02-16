@@ -155,12 +155,15 @@ class Training:
 
                 for step in range(self.max_cycles):
 
-                    curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
-                        -1,
-                        self.stack_size,
-                        self.frame_size[0],
-                        self.frame_size[1]
-                    )
+                    try:
+                        curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                            -1,
+                            self.stack_size,
+                            self.frame_size[0],
+                            self.frame_size[1]
+                        )
+                    except:
+                        break # expcetion for maximum score in env
 
                     actions = {
                         agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
