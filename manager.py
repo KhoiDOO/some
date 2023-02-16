@@ -136,7 +136,16 @@ class Training:
         
         for ep in trange(self.episodes):
 
-            main_log = log_mapping[self.env_name]
+            # main_log = log_mapping[self.env_name]
+
+            main_log = {
+                "ep" : [],
+                "step" : [],
+                "first_0" : [],
+                "second_0" : []
+            }
+
+            print(main_log)
 
             reward_step = {
                 agent : 0 for agent in self.agent_names
