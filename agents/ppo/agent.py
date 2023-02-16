@@ -25,11 +25,13 @@ def divide(data: list, chunk_size):
 def batch_split(data: list, chunk_size):
     batch_data = divide(data, chunk_size)
 
+    prev_sub_data = None
     for idx, sub_data in enumerate(batch_data):
         if len(sub_data) > 1:
             batch_data[idx] = torch.squeeze(torch.stack(sub_data, dim=0))
-        else:
-            batch_data[idx] = sub_data
+        else: 
+            batch_data[idx] = torch.squeeze(torch.stack(prev_sub_data, dim=0))
+        prev_sub_data = sub_data
 
     return batch_data
 
@@ -172,6 +174,7 @@ class PPO:
 
         # Batch Split
         obs_batch = batch_split(self.buffer.observations, self.batch_size)
+        print(len(obs_batch), len(obs_batch[0]))
         act_batch = batch_split(self.buffer.actions, self.batch_size)
         logprobs_batch = batch_split(self.buffer.logprobs, self.batch_size)
         obs_values_batch = batch_split(self.buffer.obs_values, self.batch_size)
