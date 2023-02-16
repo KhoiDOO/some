@@ -174,7 +174,6 @@ class PPO:
 
         # Batch Split
         obs_batch = batch_split(self.buffer.observations, self.batch_size)
-        print(len(obs_batch), len(obs_batch[0]))
         act_batch = batch_split(self.buffer.actions, self.batch_size)
         logprobs_batch = batch_split(self.buffer.logprobs, self.batch_size)
         obs_values_batch = batch_split(self.buffer.obs_values, self.batch_size)
