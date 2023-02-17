@@ -497,7 +497,7 @@ class Training:
         # Training
         for ep in trange(self.episodes):
 
-            main_log = log_mapping[self.env_name]
+            main_log = self.main_log_init()
 
             with torch.no_grad():
 

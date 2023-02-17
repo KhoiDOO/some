@@ -23,29 +23,6 @@ env_parobs_merge_mapping = {
     "coop-pong" : coop_pong_partial_obs_merge
 }
 
-log_mapping = {
-    "warlords" : {
-        "ep": [],
-        "step": [],
-        "first_0": [],
-        "second_0": [],
-        "third_0": [],
-        "fourth_0": []
-    },
-    "pong" : {
-        "ep" : [],
-        "step" : [],
-        "first_0" : [],
-        "second_0" : []
-    },
-    "coop-pong" : {
-        "ep" : [],
-        "step" : [],
-        "paddle_0" : [],
-        "paddle_1" : []
-    }
-}
-
 opt_mapping = {
     "SGD" : optim.SGD,
     "Adam" : optim.Adam
