@@ -127,6 +127,17 @@ class Training:
             self.experiment_algo()
         elif self.args.train_type == "pong-algo-only":
             self.pong_algo_only()
+    
+    def main_log_init(self):
+        base_dict = {
+            "ep" : [],
+            "step" : []
+        }
+
+        for agent in self.agent_names:
+            base_dict[agent] = []
+        
+        return base_dict
 
     def pong_algo_only(self):
 
@@ -138,12 +149,7 @@ class Training:
 
             # main_log = log_mapping[self.env_name]
 
-            main_log = {
-                "ep" : [],
-                "step" : [],
-                "first_0" : [],
-                "second_0" : []
-            }
+            main_log = self.main_log_init()
 
             reward_step = {
                 agent : 0 for agent in self.agent_names
@@ -204,7 +210,6 @@ class Training:
             main_log_path = self.main_log_dir + f"/{ep}.parquet"
             main_log_df = pd.DataFrame(main_log)
             main_log_df.to_parquet(main_log_path)
-                    
 
     def experiment_algo(self):
 
@@ -223,7 +228,7 @@ class Training:
 
         for ep in trange(self.episodes):
 
-            main_log = log_mapping[self.env_name]
+            main_log = self.main_log_init()
 
             with torch.no_grad():
 
@@ -294,7 +299,7 @@ class Training:
 
         for ep in trange(self.episodes):
 
-            main_log = log_mapping[self.env_name]
+            main_log = self.main_log_init()
 
             with torch.no_grad():
 
