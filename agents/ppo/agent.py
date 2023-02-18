@@ -1,7 +1,8 @@
 import os, sys
 sys.path.append(os.getcwd())
+import argparse
 from agents.ppo.modules.buffer import RolloutBuffer
-from agents.ppo.modules.backbone import ActorCritic
+from agents.ppo.modules.backbone import *
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,6 +15,13 @@ import pandas as pd
 opt_mapping = {
     "SGD" : optim.SGD,
     "Adam" : optim.Adam
+}
+
+backbone_mapping = {
+    "siamese" : ActorCriticSiamese,
+    "multi-head" : ActorCriticMultiHead,
+    "siamese-small" : ActorCriticSiameseSmall,
+    "multi-head-small" : ActorCriticMultiHeadSmall
 }
 
 def divide(data: list, chunk_size):
@@ -39,7 +47,7 @@ class PPO:
     def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.0003, 
                 lr_critic:float = 0.001, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
                 device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
-                agent_name: str = None):
+                agent_name: str = None, backbone:str = "siamese"):
         """Constructor of PPO
 
         Args:
@@ -53,6 +61,7 @@ class PPO:
             device (str, optional): type of device used for training. Defaults to "cpu".
             optimizer (str, optional): type of optimizer. Defaults to "Adam".
             batch_size (int, optional): Batch size for each training step. Defaults to 16.
+            backbone (str, optional): Type of backbone using. Defaults to "siamese"
         """
         self.gamma = gamma
         self.eps_clip = eps_clip
@@ -63,14 +72,15 @@ class PPO:
         
         self.buffer = RolloutBuffer()
 
-        self.policy = ActorCritic(stack_size = self.stack_size, 
+        self.policy = backbone_mapping[backbone](stack_size = self.stack_size, 
                                     num_actions = action_dim).to(device)
+                                    
         self.optimizer = opt_mapping[optimizer]([
             {'params': self.policy.actor.parameters(), 'lr': lr_actor},
             {'params': self.policy.critic.parameters(), 'lr': lr_critic}
             ])
 
-        self.policy_old = ActorCritic(stack_size = stack_size, 
+        self.policy_old = backbone_mapping[backbone](stack_size = stack_size, 
                                     num_actions = action_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         
@@ -204,10 +214,6 @@ class PPO:
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
-                # Debug
-                # print(obs_values_batch[idx].shape)
-                # print(reward_batch[idx].shape)
-
                 # final loss of clipped objective PPO
                 loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device)) - 0.01 * dist_entropy
 
@@ -268,7 +274,20 @@ class PPO:
 
 
 if __name__ == "__main__":
-    ppo = PPO()
+    parser = argparse.ArgumentParser()
+    # Environment
+    parser.add_argument("--backbone", type=str, choices=[
+        "siamese", "siamese-small", "multi-head", "multi-head-small"
+        ],
+        help="Backbone")
+    parser.add_argument("--device", type=str, choices=[
+        "cuda", "cpu"
+        ],
+        help="Device")
+    
+    args = parser.parse_args()
+
+    ppo = PPO(backbone=args.backbone, device=args.device)
     ppo.buffer_sample()
     ppo.update()
     ppo.export_log(rdir = os.getcwd() + "/run", ep = 1)
