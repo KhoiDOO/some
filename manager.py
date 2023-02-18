@@ -176,28 +176,23 @@ class Training:
                     }
 
                     next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
+                    
+                    for agent in self.agent_names:
+                        reward_step[agent] += 1
+
+                    main_log["ep"].append(ep)
+                    main_log["step"].append(step)
+                    for agent in self.agent_names:
+                        main_log[agent].append(reward_step[agent])
+                    
+                    for agent in self.agent_names:
+                        if rewards[agent] == -1:
+                            reward_step[agent] = 0
 
                     # Log step 
-                    if self.fix_reward:
+                    if self.fix_reward:                        
                         for agent in self.agent_names:
-                            reward_step[agent] += 1
-
-                        main_log["ep"].append(ep)
-                        main_log["step"].append(step)
-                        for agent in self.agent_names:
-                            main_log[agent].append(reward_step[agent])
-                        
-                        for agent in self.agent_names:
-                            if rewards[agent] == -1:
-                                reward_step[agent] = 0
-                        
-                        for agent in self.agent_names:
-                            rewards[agent] = 0 - rewards[agent]
-                    else:
-                        main_log["ep"].append(ep)
-                        main_log["step"].append(step)
-                        for agent in self.agent_names:
-                            main_log[agent].append(reward_step[agent])
+                            rewards[agent] = 0 - rewards[agent]                        
                     
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
