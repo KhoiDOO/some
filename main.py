@@ -124,9 +124,10 @@ if __name__ == '__main__':
 
         print("="*10, "CUDA INFO", "="*10)
         print(f"Total number of cuda: {torch.cuda.device_count()}")
-        print(f"Current CUDA index: {torch.cuda.current_device()}")
-        print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
-        print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+        print(f"CUDA chose: {args.device_index}")
+        # print(f"Current CUDA index: {torch.cuda.current_device()}")
+        # print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+        # print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
         print("="*10, "CUDA INFO", "="*10)
 
     train = Training(args=args)
