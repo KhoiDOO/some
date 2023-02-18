@@ -53,6 +53,9 @@ if __name__ == '__main__':
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
                         help="Deep policy model architecture")
+    parser.add_argument("--backbone", type=str, default="siamese", choices=[
+        "siamese", "siamese-small", "multi-head", "multi-head-small"],
+                        help="PPO Backbone")
     parser.add_argument("--epochs", type=int, default=1,
                         help="Number of epoch for training")
     parser.add_argument("--bs", type=int, default=20,
@@ -63,6 +66,7 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
+    
 
     # Dume
     parser.add_argument("--dume", type=bool, default=True,
@@ -113,11 +117,12 @@ if __name__ == '__main__':
     print(f"Dume Optimizer: {args.dume_opt}")
     print("=" * 80)
 
-    if args.device_index > torch.cuda.device_count():
+    if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
+        print(f"Cuda is not available on this machine")
+    elif args.device_index > torch.cuda.device_count():
         raise Exception(f"The device chose is higher than the number of available cuda device.\
             There are {torch.cuda.device_count()} but {args.device_index} chose instead")
-    elif torch.cuda.device_count()== 0 or not torch.cuda.is_available():
-        raise Exception(f"Cuda is not available on this machine")
+    
     # else:
     #     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
     #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.device_index)
