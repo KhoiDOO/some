@@ -1,6 +1,7 @@
 import os, sys
 import argparse
 from datetime import datetime
+import torch
 
 from manager import Training
 
@@ -46,6 +47,8 @@ if __name__ == '__main__':
                         help="Make reward by step")
     parser.add_argument("--buffer_device", type=str, default="cpu",
                         help="Device used for memory replay")
+    parser.add_argument("--device_index", type=int,
+                        help="CUDA index used for training")
 
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
@@ -92,6 +95,7 @@ if __name__ == '__main__':
     print(f"Script used in experiment mode: {args.script}")
     print(f"Fix reward function status: {args.fix_reward}")
     print(f"Buffer device: {args.buffer_device}")
+    print(f"Cuda Index: {args.device_index}")
 
     print(f"Agent: {args.agent}")
     print(f"Epochs: {args.epochs}")
@@ -100,14 +104,30 @@ if __name__ == '__main__':
     print(f"Critic Learning rate: {args.critic_lr}")
     print(f"Discount factor: {args.gamma}")
     print(f"Total Episodes: {args.ep}")
-    print(f"Otimizer: {args.opt}")
+    print(f"Optimizer: {args.opt}")
 
     print(f"Dume: {args.dume}")
     print(f"Dume Epochs: {args.dume_epochs}")
     print(f"Dume Batch size: {args.dume_bs}")
     print(f"Dume Learning rate: {args.dume_lr}")
-    print(f"Dume Otimizer: {args.dume_opt}")
+    print(f"Dume Optimizer: {args.dume_opt}")
     print("=" * 80)
+
+    if args.device_index > torch.cuda.device_count():
+        raise Exception(f"The device chose is higher than the number of available cuda device.\
+            There are {torch.cuda.device_count()} but {args.device_index} chose instead")
+    elif torch.cuda.device_count() == 0:
+        raise Exception(f"Cuda is not available on this machine")
+    else:
+        os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+        os.environ["CUDA_VISIBLE_DEVICES"]=args.device_index
+
+        print("="*10, "CUDA INFO", "="*10)
+        print(f"Total number of cuda: {torch.cuda.device_count()}")
+        print(f"Current CUDA index: {torch.cuda.current_device()}")
+        print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+        print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+        print("="*10, "CUDA INFO", "="*10)
 
     train = Training(args=args)
     train.train()
