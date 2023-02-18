@@ -120,7 +120,7 @@ if __name__ == '__main__':
         raise Exception(f"Cuda is not available on this machine")
     else:
         os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
-        os.environ["CUDA_VISIBLE_DEVICES"]=args.device_index
+        os.environ["CUDA_VISIBLE_DEVICES"]=str(args.device_index)
 
         print("="*10, "CUDA INFO", "="*10)
         print(f"Total number of cuda: {torch.cuda.device_count()}")
