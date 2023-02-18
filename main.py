@@ -116,19 +116,19 @@ if __name__ == '__main__':
     if args.device_index > torch.cuda.device_count():
         raise Exception(f"The device chose is higher than the number of available cuda device.\
             There are {torch.cuda.device_count()} but {args.device_index} chose instead")
-    elif torch.cuda.device_count() == 0:
+    elif torch.cuda.device_count()== 0 or not torch.cuda.is_available():
         raise Exception(f"Cuda is not available on this machine")
-    else:
-        os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
-        os.environ["CUDA_VISIBLE_DEVICES"]=str(args.device_index)
+    # else:
+    #     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+    #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.device_index)
 
-        print("="*10, "CUDA INFO", "="*10)
-        print(f"Total number of cuda: {torch.cuda.device_count()}")
-        print(f"CUDA chose: {args.device_index}")
-        # print(f"Current CUDA index: {torch.cuda.current_device()}")
-        # print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
-        # print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
-        print("="*10, "CUDA INFO", "="*10)
+    #     print("="*10, "CUDA INFO", "="*10)
+    #     print(f"Total number of cuda: {torch.cuda.device_count()}")
+    #     print(f"CUDA chose: {args.device_index}")
+    #     print(f"Current CUDA index: {torch.cuda.current_device()}")
+    #     print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+    #     print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+    #     print("="*10, "CUDA INFO", "="*10)
 
     train = Training(args=args)
     train.train()

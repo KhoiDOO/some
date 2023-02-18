@@ -21,7 +21,10 @@ class Training:
         self.current_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
 
         # device setup
-        self.train_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.train_device = torch.device(type = "cuda", index = args_dict["device_index"])
+        else:
+            self.train_device = "cpu"
         self.buffer_device = args_dict["buffer_device"]
 
         # verify
