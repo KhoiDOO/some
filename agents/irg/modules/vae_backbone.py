@@ -67,19 +67,19 @@ class SimpleEncoder2Player(VAEBaseLayer):
     def __init__(self, inchannel: int, outchannel: int) -> None:        
         super().__init__()
         self.network = nn.Sequential(
-            # inchannel * 32 * 32
+            # inchannel * 32 * 64
             _layer_init(nn.Conv2d(inchannel, 8, 5)),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            # 8 * 14 * 14
+            # 8 * 14 * 30
             _layer_init(nn.Conv2d(8, 16, 5)),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            # 16 * 5 * 5
+            # 16 * 5 * 13
             _layer_init(nn.Conv2d(16, 32, 4)),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            # 32 * 1 * 1
+            # 32 * 1 * 5
         )
         self.outer = nn.Sequential(
             _layer_init(nn.Linear(32, outchannel)),
@@ -95,8 +95,8 @@ class SimpleDecoder2Player(VAEBaseLayer):
     def __init__(self, inchannel: int) -> None:
         super().__init__()
         self.network = nn.Sequential(
-            _layer_init(nn.Linear(inchannel, 32)),
-            nn.Unflatten(1, (32, 5, 1)),
+            _layer_init(nn.Linear(inchannel, 160)),
+            nn.Unflatten(1, (32, 1, 5)),
             nn.ReLU(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
             #32 * 2 * 2
