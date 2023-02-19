@@ -1,6 +1,7 @@
 import os, sys
 
 def run_folder_verify(time):
+    print()
     print("===verifying result folder===")
     print(f"current folder: {os.getcwd()}")
 
@@ -9,13 +10,19 @@ def run_folder_verify(time):
         os.mkdir(run_dir)
     
     run_train_dir = run_dir + "/train"
-    run_valid_dir = run_dir + "/val"
+    # run_valid_dir = run_dir + "/val"
 
-    for x in [run_train_dir, run_valid_dir]:
+    for x in [
+        run_train_dir, 
+        # run_valid_dir
+        ]:
         if not os.path.exists(x):
             os.mkdir(x)
     
-    time_dirs = [run_train_dir + f"/{time}", run_valid_dir + f"/{time}"]
+    time_dirs = [
+        run_train_dir + f"/{time}", 
+        # run_valid_dir + f"/{time}"
+        ]
 
     for x in time_dirs:
         if not os.path.exists(x):
@@ -35,3 +42,4 @@ def run_folder_verify(time):
                     os.mkdir(main_log_dir)
     
     print("=====Done=====\n")
+    print()
