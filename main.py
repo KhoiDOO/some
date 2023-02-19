@@ -32,13 +32,13 @@ if __name__ == '__main__':
                         help="Area scale of partial observation varies in range of (0, 2)]")
 
     # Training
-    parser.add_argument("--train_type", type=str, default="train-dume-only",
-                        choices=["train-dume-only", "train-parallel", "train-algo-only", "experiment-dual",
-                                 "experiment-algo", "pong-algo-only", "pong-dume-only", "pong-dume-algo"],
+    parser.add_argument("--train_type", type=str, default="train-irg-only",
+                        choices=["train-irg-only", "train-parallel", "train-algo-only", "experiment-dual",
+                                 "experiment-algo", "pong-algo-only", "pong-irg-only", "pong-irg-algo"],
                         help="Type of training")
     parser.add_argument("--agent_choose", type=str, default="first_0",
                         choices=["first_0", "second_0", "third_0", "fourth_0", "paddle_0", "paddle_1"],
-                        help="Agent chose for training, only available for dume or algo dume-only mode")
+                        help="Agent chose for training, only available for irg or algo irg-only mode")
     parser.add_argument("--script", type=str, default="sample",
                         help="Script includes weight paths to model, only needed in experiment mode, "
                              "detail in /script folder, create your_setting.json same as sample.json "
@@ -67,17 +67,17 @@ if __name__ == '__main__':
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
 
-    # Dume
-    parser.add_argument("--dume", type=bool, default=True,
+    # irg
+    parser.add_argument("--irg", type=bool, default=True,
                         help="Partial Observation Deep Policy")
-    parser.add_argument("--dume_epochs", type=int, default=1,
+    parser.add_argument("--irg_epochs", type=int, default=1,
                         help="Number of epoch for training")
-    parser.add_argument("--dume_bs", type=int, default=32,
+    parser.add_argument("--irg_bs", type=int, default=32,
                         help="Batch size")
-    parser.add_argument("--dume_lr", type=float, default=0.005,
+    parser.add_argument("--irg_lr", type=float, default=0.005,
                         help="learning rate")
-    parser.add_argument("--dume_opt", type=str, default="Adam",
-                        help="Optimizer for DUME")
+    parser.add_argument("--irg_opt", type=str, default="Adam",
+                        help="Optimizer for irg")
     args = parser.parse_args()
 
     print("=" * 80)
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     print(f"Partial Observation Area Scale: {args.view}")
 
     print(f"Type of training experiment: {args.train_type}")
-    print(f"Agent chose in dume-only mode: {args.agent_choose}")
+    print(f"Agent chose in irg-only mode: {args.agent_choose}")
     print(f"Script used in experiment mode: {args.script}")
     print(f"Fix reward function status: {args.fix_reward}")
     print(f"Buffer device: {args.buffer_device}")
@@ -109,11 +109,11 @@ if __name__ == '__main__':
     print(f"Total Episodes: {args.ep}")
     print(f"Optimizer: {args.opt}")
 
-    print(f"Dume: {args.dume}")
-    print(f"Dume Epochs: {args.dume_epochs}")
-    print(f"Dume Batch size: {args.dume_bs}")
-    print(f"Dume Learning rate: {args.dume_lr}")
-    print(f"Dume Optimizer: {args.dume_opt}")
+    print(f"irg: {args.irg}")
+    print(f"irg Epochs: {args.irg_epochs}")
+    print(f"irg Batch size: {args.irg_bs}")
+    print(f"irg Learning rate: {args.irg_lr}")
+    print(f"irg Optimizer: {args.irg_opt}")
     print("=" * 80)
 
     if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
@@ -126,12 +126,14 @@ if __name__ == '__main__':
         raise Exception(f"The device chose is higher than the number of available cuda device.\
             There are {torch.cuda.device_count()} but {args.device_index} chose instead")
     else:
+        print()
         print("="*10, "CUDA INFO", "="*10)
         print(f"Total number of cuda: {torch.cuda.device_count()}")
         print(f"CUDA current index: {args.device_index}")
         print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
         print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
         print("="*10, "CUDA INFO", "="*10)
+        print()
 
     train = Training(args=args)
     train.train()

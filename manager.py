@@ -31,7 +31,6 @@ class Training:
             self.train_device = "cpu"
             self.buffer_device = "cpu"
         
-
         # verify
         run_folder_verify(self.current_time)
 
