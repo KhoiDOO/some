@@ -5,7 +5,7 @@ from torch import nn
 import numpy as np
 from utils.batchify import *
 from agents.irg.modules.mlp_backbone import *
-from agents.irg.modules.core import *
+from agents.irg.modules.core import BaseLayer, _layer_init
 
 class SkillEncoder(BaseLayer):
     def __init__(self, 
@@ -14,7 +14,7 @@ class SkillEncoder(BaseLayer):
         super().__init__()
         self.obs_encoder = self.backbone_mapping[backbone_index]["encoder"](inchannel=obs_inchannel, outchannel=obs_outchannel).to(device)
         # self.dense = _layer_init(nn.Linear(obs_outchannel+act_inchannel, 128)).to(device)
-        self.skill_embed_net = self._layer_init(nn.Linear(obs_outchannel+act_inchannel, 64)).to(device)
+        self.skill_embed_net = _layer_init(nn.Linear(obs_outchannel+act_inchannel, 64)).to(device)
     
     def forward(self, obs, action):
         obs_feature = self.obs_encoder(obs)
@@ -41,7 +41,7 @@ class TaskEncoder(BaseLayer):
         super().__init__()
         self.obs_encoder = self.backbone_mapping[backbone_index]["encoder"](inchannel=obs_inchannel, outchannel=obs_outchannel).to(device)
         # self.dense = _layer_init(nn.Linear(obs_outchannel+act_inchannel, 256)).to(device)
-        self.task_embed_net = self._layer_init(nn.Linear(obs_outchannel+act_inchannel, 64)).to(device)
+        self.task_embed_net = _layer_init(nn.Linear(obs_outchannel+act_inchannel, 64)).to(device)
     
     def forward(self, obs, prev_action, prev_reward):
         obs_feature = self.obs_encoder(obs)

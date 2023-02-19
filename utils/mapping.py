@@ -3,7 +3,7 @@ from envs.pong.pong_env import *
 from envs.cooperative_pong.coop_pong_env import *
 from torch import optim
 from agents.ppo.agent import PPO
-from agents.dume.agent import DUME
+from agents.irg.agent import DUME
 
 env_mapping = {
     "warlords" : wardlord_env_build,
