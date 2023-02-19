@@ -1,6 +1,7 @@
 import os, sys
 import argparse
 from datetime import datetime
+import torch
 
 from manager import Training
 
@@ -9,7 +10,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     # Environment
-    parser.add_argument("--env", type=str, default="warlords", choices=["warlords"],
+    parser.add_argument("--env", type=str, default="warlords", choices=["warlords", "pong", "coop-pong"],
                         help="Environment used in training and testing")
     parser.add_argument("--render_mode", type=str, default=None, choices=["rgb_array", "human"],
                         help="Mode of rendering")
@@ -31,23 +32,30 @@ if __name__ == '__main__':
                         help="Area scale of partial observation varies in range of (0, 2)]")
 
     # Training
-    parser.add_argument("--train_type", type=str, default="dume-only",
-                        choices=["train-dume-only", "train-parallel", "train-algo-only", "experiment_dual",
-                                 "experiment_algo"],
+    parser.add_argument("--train_type", type=str, default="train-dume-only",
+                        choices=["train-dume-only", "train-parallel", "train-algo-only", "experiment-dual",
+                                 "experiment-algo", "pong-algo-only", "pong-dume-only", "pong-dume-algo"],
                         help="Type of training")
     parser.add_argument("--agent_choose", type=str, default="first_0",
-                        choices=["first_0", "second_0", "third_0", "fourth_0"],
+                        choices=["first_0", "second_0", "third_0", "fourth_0", "paddle_0", "paddle_1"],
                         help="Agent chose for training, only available for dume or algo dume-only mode")
     parser.add_argument("--script", type=str, default="sample",
                         help="Script includes weight paths to model, only needed in experiment mode, "
                              "detail in /script folder, create your_setting.json same as sample.json "
-                             "for conducting custom experiment", choices=["sample", "20623"])
+                             "for conducting custom experiment")
     parser.add_argument("--fix_reward", type=bool, default=False,
                         help="Make reward by step")
+    parser.add_argument("--buffer_device", type=str, default="cpu",
+                        help="Device used for memory replay")
+    parser.add_argument("--device_index", type=int,
+                        help="CUDA index used for training")
 
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
                         help="Deep policy model architecture")
+    parser.add_argument("--backbone", type=str, default="siamese", choices=[
+        "siamese", "siamese-small", "multi-head", "multi-head-small"],
+                        help="PPO Backbone")
     parser.add_argument("--epochs", type=int, default=1,
                         help="Number of epoch for training")
     parser.add_argument("--bs", type=int, default=20,
@@ -64,12 +72,12 @@ if __name__ == '__main__':
                         help="Partial Observation Deep Policy")
     parser.add_argument("--dume_epochs", type=int, default=1,
                         help="Number of epoch for training")
-    parser.add_argument("--dume_bs", type=int, default=20,
+    parser.add_argument("--dume_bs", type=int, default=32,
                         help="Batch size")
     parser.add_argument("--dume_lr", type=float, default=0.005,
                         help="learning rate")
     parser.add_argument("--dume_opt", type=str, default="Adam",
-                        help="Otimizer for DUME")
+                        help="Optimizer for DUME")
     args = parser.parse_args()
 
     print("=" * 80)
@@ -89,6 +97,8 @@ if __name__ == '__main__':
     print(f"Agent chose in dume-only mode: {args.agent_choose}")
     print(f"Script used in experiment mode: {args.script}")
     print(f"Fix reward function status: {args.fix_reward}")
+    print(f"Buffer device: {args.buffer_device}")
+    print(f"Cuda Index: {args.device_index}")
 
     print(f"Agent: {args.agent}")
     print(f"Epochs: {args.epochs}")
@@ -97,14 +107,31 @@ if __name__ == '__main__':
     print(f"Critic Learning rate: {args.critic_lr}")
     print(f"Discount factor: {args.gamma}")
     print(f"Total Episodes: {args.ep}")
-    print(f"Otimizer: {args.opt}")
+    print(f"Optimizer: {args.opt}")
 
     print(f"Dume: {args.dume}")
     print(f"Dume Epochs: {args.dume_epochs}")
     print(f"Dume Batch size: {args.dume_bs}")
     print(f"Dume Learning rate: {args.dume_lr}")
-    print(f"Dume Otimizer: {args.dume_opt}")
+    print(f"Dume Optimizer: {args.dume_opt}")
     print("=" * 80)
+
+    if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
+        print()
+        print("="*10, "CUDA INFO", "="*10)
+        print(f"Cuda is not available on this machine")
+        print("="*10, "CUDA INFO", "="*10)
+        print()
+    elif args.device_index > torch.cuda.device_count():
+        raise Exception(f"The device chose is higher than the number of available cuda device.\
+            There are {torch.cuda.device_count()} but {args.device_index} chose instead")
+    else:
+        print("="*10, "CUDA INFO", "="*10)
+        print(f"Total number of cuda: {torch.cuda.device_count()}")
+        print(f"CUDA current index: {args.device_index}")
+        print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+        print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+        print("="*10, "CUDA INFO", "="*10)
 
     train = Training(args=args)
     train.train()

@@ -2,10 +2,11 @@ import os, sys
 sys.path.append(os.getcwd())
 import torch
 from torch import nn 
+from torchvision.transforms import Resize
 from torch import optim
 import pandas as pd
 from utils.mapping import *
-from agents.dume.modules.simple_backbone import *
+from agents.irg.modules.irg_backbone import *
 from tqdm import trange
 
 env_def = {
@@ -21,13 +22,13 @@ opt_mapping = {
 }
 
 class DUME_Brain(nn.Module):
-    def __init__(self, device = "cuda") -> None:
+    def __init__(self, backbone_index:int = 4, device:str = "cuda") -> None:
         super().__init__()
         self.device = device
-        self.skill_encoder = SkillEncoder(obs_inchannel=4, obs_outchannel=64, act_inchannel=1, device = self.device).to(self.device)
+        self.skill_encoder = SkillEncoder(obs_inchannel=4, obs_outchannel=64, act_inchannel=1, backbone_index=backbone_index, device = self.device).to(self.device)
         self.skill_decoder = SkillDecoder(obs_encoded_size=64, skill_embedding_size=64, device = self.device).to(self.device)
-        self.task_encoder = TaskEncoder(obs_inchannel=4, obs_outchannel=64, act_inchannel=2, device = self.device).to(self.device)
-        self.obs_decoder = ObservationDecoder(obs_encoded_size=64, task_embedding_size=64, device = self.device).to(self.device)
+        self.task_encoder = TaskEncoder(obs_inchannel=4, obs_outchannel=64, act_inchannel=2,  backbone_index=backbone_index, device = self.device).to(self.device)
+        self.obs_decoder = ObservationDecoder(obs_encoded_size=64, task_embedding_size=64,  backbone_index=backbone_index, device = self.device).to(self.device)
         self.rew_decoder = RewardDecoder(obs_encoded_size=64, task_embedding_size=64,device = self.device).to(self.device)
     
     def forward(self, curr_obs, 
@@ -57,7 +58,7 @@ class DUME_Brain(nn.Module):
 class DUME:
     def __init__(self, batch_size: int = 20, lr: float = 0.005, gamma: float = 0.99,
             optimizer: str = "Adam", agent_name: str = None, epoches:int = 3,
-            env_dict = env_def, train_device = "gpu", buffer_device = "cpu") -> None:
+            env_dict = env_def, train_device = "cuda", buffer_device = "cpu") -> None:
         """Constuctor of DUME
 
         Args:
@@ -76,11 +77,12 @@ class DUME:
         self.gamma = gamma
         self.train_device = train_device
         self.buffer_device = buffer_device
-        self.brain = DUME_Brain(device = self.train_device).to(device = self.train_device)
-        self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
         self.agent_name = agent_name
         self.epoches = epoches
         self.env_dict = env_dict
+        self.brain = DUME_Brain(device = self.train_device, 
+            backbone_index=self.env_dict["num_agents"]).to(device = self.train_device)
+        self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
 
         # memory replay
         self.rb_obs = list()
@@ -430,7 +432,13 @@ class DUME:
         return loss
 
 if __name__ == "__main__":
-    dume = DUME(epoches = 1, batch_size=20, train_device="cpu", buffer_device="cpu")
+    env_test = {
+        "max_cycles" : 124,
+        "num_agents" : 2,
+        "stack_size" : 4,
+        "single_frame_size" : (32, 64)
+    }
+    dume = DUME(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
     dume.unitest()
     dume.export_log(rdir=os.getcwd() + "/run", ep=1)
     dume.model_export(rdir=os.getcwd() + "/run")

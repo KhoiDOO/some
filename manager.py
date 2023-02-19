@@ -9,8 +9,6 @@ import torch
 from tqdm import trange
 import pandas as pd
 
-from envs.warlords.warlord_env import wardlord_coordinate_obs, wardlord_partial_obs_merge
-
 
 class Training:
     def __init__(self, args: argparse.PARSER) -> None:
@@ -23,8 +21,11 @@ class Training:
         self.current_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
 
         # device setup
-        self.train_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.buffer_device = "cpu"
+        if torch.cuda.is_available():
+            self.train_device = torch.device(type = "cuda", index = args_dict["device_index"])
+        else:
+            self.train_device = "cpu"
+        self.buffer_device = args_dict["buffer_device"]
 
         # verify
         run_folder_verify(self.current_time)
@@ -123,10 +124,160 @@ class Training:
             self.train_dume_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "train-algo-only":
             self.train_algo_only()
-        elif self.args.train_type == "experiment_dual":
+        elif self.args.train_type == "experiment-dual":
             self.experiment_dual()
-        elif self.args.train_type == "experiment_algo":
+        elif self.args.train_type == "experiment-algo":
             self.experiment_algo()
+        elif self.args.train_type == "pong-algo-only":
+            self.pong_algo_only()
+        elif self.args.train_type == "pong-dume-only":
+            self.pong_dume_only(agent_name=self.args.agent_choose)
+        elif self.args.train_type == "pong-dume-algo":
+            raise NotImplementedError
+    
+    def main_log_init(self):
+        base_dict = {
+            "ep" : [],
+            "step" : []
+        }
+
+        for agent in self.agent_names:
+            base_dict[agent] = []
+        
+        return base_dict
+    
+    def pong_dume_only(self, agent_name):
+        if self.env_name != "pong":
+            raise Exception(f"Env must be pong but found {self.env_name} instead")
+        if not self.dume_in_use:
+            raise Exception("dume need to be True and included path to conduct experiment mode")
+
+        # Create Agent
+        dume_agent = self.dume_agents[agent_name]
+
+        # Buffer Memory
+
+        for _ in trange(self.episodes):
+
+            with torch.no_grad():
+
+                self.output_env.reset(seed=None)
+
+                obs_lst, act_lst, rew_lst = [], [], []
+
+                for step in range(self.max_cycles):
+
+                    actions = {a: self.output_env.action_space(a).sample() for a in self.output_env.possible_agents}
+
+                    next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)
+
+                    if self.fix_reward:
+                        rewards = {
+                            agent: step if agent in terms else 0 for agent in self.agent_names
+                        }
+
+                    action = torch.tensor([actions[agent_name]])
+
+                    act_lst.append(action)
+
+                    reward = torch.tensor([rewards[agent_name]])
+
+                    rew_lst.append(reward)
+
+                    try:
+                        curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                            -1,
+                            self.stack_size,
+                            self.frame_size[0],
+                            self.frame_size[1]
+                        )
+                    except:
+                        break
+
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
+
+                    obs_used = agent_curr_obs[agent_name][0]
+
+                    obs_lst.append(obs_used)
+
+                obs_stack = torch.stack(obs_lst)
+                act_stack = torch.stack(act_lst)
+                rew_stack = torch.stack(rew_lst)
+
+                dume_agent.add_memory(obs=obs_stack, acts=act_stack, rews=rew_stack)
+
+        # Dume training
+        dume_agent.update()
+        dume_agent.export_log(rdir=self.log_agent_dir, ep="all")
+        dume_agent.model_export(rdir=self.model_agent_dir)
+        
+
+    def pong_algo_only(self):
+
+        # Train and logging in parallel
+        if self.env_name != "pong":
+            raise Exception(f"Env must be pong but found {self.env_name} instead")
+        
+        for ep in trange(self.episodes):
+
+            # main_log = log_mapping[self.env_name]
+
+            main_log = self.main_log_init()
+
+            reward_step = {
+                agent : 0 for agent in self.agent_names
+            }
+
+            with torch.no_grad():
+
+                next_obs = self.output_env.reset(seed=None)
+
+                for step in range(self.max_cycles):
+
+                    try:
+                        curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                            -1,
+                            self.stack_size,
+                            self.frame_size[0],
+                            self.frame_size[1]
+                        )
+                    except:
+                        break # expcetion for maximum score in env
+
+                    actions = {
+                        agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
+                    }
+
+                    next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
+                    
+                    for agent in self.agent_names:
+                        reward_step[agent] += 1
+
+                    main_log["ep"].append(ep)
+                    main_log["step"].append(step)
+                    for agent in self.agent_names:
+                        main_log[agent].append(reward_step[agent])
+                    
+                    for agent in self.agent_names:
+                        if rewards[agent] == -1:
+                            reward_step[agent] = 0
+
+                    # Log step 
+                    if self.fix_reward:                        
+                        for agent in self.agent_names:
+                            rewards[agent] = 0 - rewards[agent]                        
+                    
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+
+            for agent in self.agent_names:
+                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
+                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
+            
+            main_log_path = self.main_log_dir + f"/{ep}.parquet"
+            main_log_df = pd.DataFrame(main_log)
+            main_log_df.to_parquet(main_log_path)
 
     def experiment_algo(self):
 
@@ -145,14 +296,7 @@ class Training:
 
         for ep in trange(self.episodes):
 
-            main_log = {
-                "ep": [],
-                "step": [],
-                "first_0": [],
-                "second_0": [],
-                "third_0": [],
-                "fourth_0": []
-            }
+            main_log = self.main_log_init()
 
             with torch.no_grad():
 
@@ -180,12 +324,10 @@ class Training:
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    main_log["first_0"].append(rewards["first_0"])
-                    main_log["second_0"].append(rewards["second_0"])
-                    main_log["third_0"].append(rewards["third_0"])
-                    main_log["fourth_0"].append(rewards["fourth_0"])
+                    for agent in self.agent_names:
+                        main_log[agent].append(rewards[agent])
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
             # Save main log
@@ -225,14 +367,7 @@ class Training:
 
         for ep in trange(self.episodes):
 
-            main_log = {
-                "ep": [],
-                "step": [],
-                "first_0": [],
-                "second_0": [],
-                "third_0": [],
-                "fourth_0": []
-            }
+            main_log = self.main_log_init()
 
             with torch.no_grad():
 
@@ -252,15 +387,10 @@ class Training:
                         self.frame_size[1]
                     )
 
-                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
 
                     for agent in self.agent_names:
                         base_agent_curr_obs = agent_curr_obs[agent]  # get obs specific to agent
-
-                        # self.dume_agents[others].add_memory(
-                        #             agent_curr_obs[others], 
-                        #             curr_act_buffer[others], 
-                        #             curr_rew_buffer[others])
 
                         obs_merges = {
                             agent: base_agent_curr_obs
@@ -268,7 +398,7 @@ class Training:
 
                         for others in self.agent_names:
                             if others != agent:
-                                predict_obs, _, _, _, _ = self.dume_agents[others](
+                                predict_obs, _ = self.dume_agents[others](
                                     curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
                                     curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
                                     prev_act=prev_act_buffer[others].to(device=self.train_device, dtype=torch.float),
@@ -279,7 +409,7 @@ class Training:
                                 obs_merges[others] = predict_obs
 
                         # Merge Observation
-                        base_agent_merge_obs = wardlord_partial_obs_merge(
+                        base_agent_merge_obs = env_parobs_merge_mapping[self.env_name](
                             obs_merges=obs_merges,
                             frame_size=tuple(self.frame_size),
                             stack_size=self.stack_size,
@@ -310,10 +440,8 @@ class Training:
 
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    main_log["first_0"].append(rewards["first_0"])
-                    main_log["second_0"].append(rewards["second_0"])
-                    main_log["third_0"].append(rewards["third_0"])
-                    main_log["fourth_0"].append(rewards["fourth_0"])
+                    for agent in self.agent_names:
+                        main_log[agent].append(rewards[agent])
 
                     # Re-update buffer
                     prev_act_buffer = curr_act_buffer
@@ -322,7 +450,7 @@ class Training:
                         agent: torch.Tensor([[rewards[agent]]]) for agent in rewards
                     }
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
             main_log_path = self.main_log_dir + f"/{ep}.parquet"
@@ -366,7 +494,7 @@ class Training:
 
                     rew_lst.append(reward)
 
-                    if len(list(terms.keys())) == 0:
+                    if len(list(terms.keys())) <= 1:
                         break
 
                     curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
@@ -376,7 +504,7 @@ class Training:
                         self.frame_size[1]
                     )
 
-                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
 
                     obs_used = agent_curr_obs[agent_name][0]
 
@@ -421,11 +549,11 @@ class Training:
                             agent: step if agent in terms else 0 for agent in self.agent_names
                         }
 
+                    if len(list(terms.keys())) <= 1:
+                        break   
+
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
-
-                    if len(list(terms.keys())) == 0:
-                        break
 
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
@@ -437,14 +565,7 @@ class Training:
         # Training
         for ep in trange(self.episodes):
 
-            main_log = {
-                "ep": [],
-                "step": [],
-                "first_0": [],
-                "second_0": [],
-                "third_0": [],
-                "fourth_0": []
-            }
+            main_log = self.main_log_init()
 
             with torch.no_grad():
 
@@ -465,7 +586,7 @@ class Training:
                         self.frame_size[1]
                     )
 
-                    agent_curr_obs = wardlord_coordinate_obs(curr_obs, p_size=self.p_size)
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
 
                     for agent in self.agent_names:
                         base_agent_curr_obs = agent_curr_obs[agent]  # get obs specific to agent
@@ -483,7 +604,7 @@ class Training:
                                     curr_rew_buffer[others])
 
                                 # Get predicted information by dume
-                                predict_obs, _, _, _, _ = self.dume_agents[
+                                predict_obs, _ = self.dume_agents[
                                     others](
                                     curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
                                     curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
@@ -495,7 +616,7 @@ class Training:
                                 obs_merges[others] = predict_obs
 
                         # Merge Observation
-                        base_agent_merge_obs = wardlord_partial_obs_merge(
+                        base_agent_merge_obs = env_parobs_merge_mapping[self.env_name](
                             obs_merges=obs_merges,
                             frame_size=tuple(self.frame_size),
                             stack_size=self.stack_size,
@@ -526,14 +647,8 @@ class Training:
                     # Logging
                     main_log["ep"].append(ep)
                     main_log["step"].append(step)
-                    main_log["first_0"].append(rewards["first_0"])
-                    main_log["second_0"].append(rewards["second_0"])
-                    main_log["third_0"].append(rewards["third_0"])
-                    main_log["fourth_0"].append(rewards["fourth_0"])
-
-                    # Update Main Algo Memory
-                    for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
+                    for agent in self.agent_names:
+                        main_log[agent].append(rewards[agent])
 
                     # Update buffer
                     prev_act_buffer = curr_act_buffer
@@ -542,8 +657,12 @@ class Training:
                         agent: torch.Tensor([[rewards[agent]]]) for agent in rewards
                     }
 
-                    if any([terms[a] for a in terms]) or any([truncation[a] for a in truncation]):
+                    if len(list(rewards.keys())) <= 1:
                         break
+
+                    # Update Main Algo Memory
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
 
             # Update Main Policy and DUME 
             for agent in self.agent_names:
