@@ -23,9 +23,14 @@ class Training:
         # device setup
         if torch.cuda.is_available():
             self.train_device = torch.device(type = "cuda", index = args_dict["device_index"])
+            if args_dict["buffer_device"] == "cuda":
+                self.buffer_device = torch.device(type = "cuda", index = args_dict["device_index"])
+            else:
+                self.buffer_device = args_dict["buffer_device"]
         else:
             self.train_device = "cpu"
-        self.buffer_device = args_dict["buffer_device"]
+            self.buffer_device = "cpu"
+        
 
         # verify
         run_folder_verify(self.current_time)
@@ -204,7 +209,9 @@ class Training:
                 act_stack = torch.stack(act_lst)
                 rew_stack = torch.stack(rew_lst)
 
-                dume_agent.add_memory(obs=obs_stack, acts=act_stack, rews=rew_stack)
+                dume_agent.add_memory(obs=obs_stack.to(device=self.buffer_device), 
+                                        acts=act_stack.to(device=self.buffer_device), 
+                                        rews=rew_stack.to(device=self.buffer_device))
 
         # Dume training
         dume_agent.update()
