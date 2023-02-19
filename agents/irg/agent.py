@@ -121,12 +121,16 @@ class DUME:
             self.add_memory(obs = obs_buffer, acts = act_buffer, rews=rew_buffer)
     
     def __call__(self, curr_obs, curr_act, prev_act, prev_rew):
-        return self.brain(
+        pred_obs, pred_rew = self.brain(
             curr_obs.to(device = self.train_device), 
             curr_act.to(device = self.train_device), 
             prev_act.to(device = self.train_device), 
             prev_rew.to(device = self.train_device),
             self.train_device)
+        
+        scale_pred_obs = ((pred_obs - pred_obs.min()) * (1/(pred_obs.max() - pred_obs.min()) * 255)).type(torch.int8)
+
+        return scale_pred_obs, pred_rew
     
     def unitest(self):
         test_skill_encoder = self.brain.skill_encoder
