@@ -434,9 +434,9 @@ class DUME:
 if __name__ == "__main__":
     env_test = {
         "max_cycles" : 124,
-        "num_agents" : 4,
+        "num_agents" : 2,
         "stack_size" : 4,
-        "single_frame_size" : (32, 32)
+        "single_frame_size" : (32, 64)
     }
     dume = DUME(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
     dume.unitest()
