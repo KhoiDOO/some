@@ -74,11 +74,11 @@ class Training:
         self.critic_lr = args_dict["critic_lr"]
         self.optimizer = args_dict["opt"]
 
-        self.dume_in_use = args_dict["dume"]
-        self.dume_epochs = args_dict["dume_epochs"]
-        self.dume_batch_size = args_dict["dume_bs"]
-        self.dume_lr = args_dict["dume_lr"]
-        self.dume_optimizer = args_dict["dume_opt"]
+        self.irg_in_use = args_dict["irg"]
+        self.irg_epochs = args_dict["irg_epochs"]
+        self.irg_batch_size = args_dict["irg_bs"]
+        self.irg_lr = args_dict["irg_lr"]
+        self.irg_optimizer = args_dict["irg_opt"]
 
         self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
                                                      max_cycles=self.max_cycles, render_mode=self.render_mode,
@@ -100,7 +100,7 @@ class Training:
             agent_name=name
         ) for name in self.agent_names}
 
-        self.env_dume_def = {
+        self.env_irg_def = {
             "max_cycles": self.max_cycles,
             "num_agents": len(self.agent_names),
             "stack_size": self.stack_size,
@@ -108,15 +108,15 @@ class Training:
                                   int(self.frame_size[1] / 2))
         }
 
-        if self.dume_in_use:
-            self.dume_agents = {name: agent_mapping["dume"](
-                batch_size=self.dume_batch_size,
-                lr=self.dume_lr,
+        if self.irg_in_use:
+            self.irg_agents = {name: agent_mapping["irg"](
+                batch_size=self.irg_batch_size,
+                lr=self.irg_lr,
                 gamma=self.gamma,
-                optimizer=self.dume_optimizer,
+                optimizer=self.irg_optimizer,
                 agent_name=name,
-                epoches=self.dume_epochs,
-                env_dict=self.env_dume_def,
+                epoches=self.irg_epochs,
+                env_dict=self.env_irg_def,
                 train_device=self.train_device,
                 buffer_device=self.buffer_device
             ) for name in self.agent_names}
@@ -124,8 +124,8 @@ class Training:
     def train(self):
         if self.args.train_type == "train-parallel":
             self.train_parallel()
-        elif self.args.train_type == "train-dume-only":
-            self.train_dume_only(agent_name=self.args.agent_choose)
+        elif self.args.train_type == "train-irg-only":
+            self.train_irg_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "train-algo-only":
             self.train_algo_only()
         elif self.args.train_type == "experiment-dual":
@@ -134,9 +134,9 @@ class Training:
             self.experiment_algo()
         elif self.args.train_type == "pong-algo-only":
             self.pong_algo_only()
-        elif self.args.train_type == "pong-dume-only":
-            self.pong_dume_only(agent_name=self.args.agent_choose)
-        elif self.args.train_type == "pong-dume-algo":
+        elif self.args.train_type == "pong-irg-only":
+            self.pong_irg_only(agent_name=self.args.agent_choose)
+        elif self.args.train_type == "pong-irg-algo":
             raise NotImplementedError
     
     def main_log_init(self):
@@ -150,14 +150,14 @@ class Training:
         
         return base_dict
     
-    def pong_dume_only(self, agent_name):
+    def pong_irg_only(self, agent_name):
         if self.env_name != "pong":
             raise Exception(f"Env must be pong but found {self.env_name} instead")
-        if not self.dume_in_use:
-            raise Exception("dume need to be True and included path to conduct experiment mode")
+        if not self.irg_in_use:
+            raise Exception("irg need to be True and included path to conduct experiment mode")
 
         # Create Agent
-        dume_agent = self.dume_agents[agent_name]
+        irg_agent = self.irg_agents[agent_name]
 
         # Buffer Memory
 
@@ -208,14 +208,14 @@ class Training:
                 act_stack = torch.stack(act_lst)
                 rew_stack = torch.stack(rew_lst)
 
-                dume_agent.add_memory(obs=obs_stack.to(device=self.buffer_device), 
+                irg_agent.add_memory(obs=obs_stack.to(device=self.buffer_device), 
                                         acts=act_stack.to(device=self.buffer_device), 
                                         rews=rew_stack.to(device=self.buffer_device))
 
-        # Dume training
-        dume_agent.update()
-        dume_agent.export_log(rdir=self.log_agent_dir, ep="all")
-        dume_agent.model_export(rdir=self.model_agent_dir)
+        # irg training
+        irg_agent.update()
+        irg_agent.export_log(rdir=self.log_agent_dir, ep="all")
+        irg_agent.model_export(rdir=self.model_agent_dir)
         
 
     def pong_algo_only(self):
@@ -342,15 +342,15 @@ class Training:
             main_log_df.to_parquet(main_log_path)
 
     def experiment_dual(self):
-        if not self.dume_in_use:
-            raise Exception("dume need to be True and included path to conduct experiment mode")
+        if not self.irg_in_use:
+            raise Exception("irg need to be True and included path to conduct experiment mode")
 
         script_dict = json.load(open(self.script_path))
 
         algo_date = script_dict["algo"]
 
-        dume_weight_paths = {
-            agent: os.getcwd() + f"/run/train/{script_dict[agent]}/weights/dume_{agent}.pt" for agent in
+        irg_weight_paths = {
+            agent: os.getcwd() + f"/run/train/{script_dict[agent]}/weights/irg_{agent}.pt" for agent in
             self.agent_names
         }
 
@@ -361,9 +361,9 @@ class Training:
         # Load weight
 
         for agent in self.agent_names:
-            if self.dume_in_use:
-                self.dume_agents[agent].brain.load_state_dict(
-                    torch.load(dume_weight_paths[agent], map_location=self.train_device)
+            if self.irg_in_use:
+                self.irg_agents[agent].brain.load_state_dict(
+                    torch.load(irg_weight_paths[agent], map_location=self.train_device)
                 )
             self.main_algo_agents[agent].policy_old.load_state_dict(
                 torch.load(algo_weight_paths[agent], map_location=self.train_device)
@@ -404,7 +404,7 @@ class Training:
 
                         for others in self.agent_names:
                             if others != agent:
-                                predict_obs, _ = self.dume_agents[others](
+                                predict_obs, _ = self.irg_agents[others](
                                     curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
                                     curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
                                     prev_act=prev_act_buffer[others].to(device=self.train_device, dtype=torch.float),
@@ -463,13 +463,13 @@ class Training:
             main_log_df = pd.DataFrame(main_log)
             main_log_df.to_parquet(main_log_path)
 
-    def train_dume_only(self, agent_name="first_0"):
+    def train_irg_only(self, agent_name="first_0"):
 
-        if not self.dume_in_use:
-            raise Exception("dume need to be True and included path to conduct experiment mode")
+        if not self.irg_in_use:
+            raise Exception("irg need to be True and included path to conduct experiment mode")
 
         # Create Agent
-        dume_agent = self.dume_agents[agent_name]
+        irg_agent = self.irg_agents[agent_name]
 
         # Buffer Memory
 
@@ -520,12 +520,12 @@ class Training:
                 act_stack = torch.stack(act_lst)
                 rew_stack = torch.stack(rew_lst)
 
-                dume_agent.add_memory(obs=obs_stack, acts=act_stack, rews=rew_stack)
+                irg_agent.add_memory(obs=obs_stack, acts=act_stack, rews=rew_stack)
 
-        # Dume training
-        dume_agent.update()
-        dume_agent.export_log(rdir=self.log_agent_dir, ep="all")
-        dume_agent.model_export(rdir=self.model_agent_dir)
+        # irg training
+        irg_agent.update()
+        irg_agent.export_log(rdir=self.log_agent_dir, ep="all")
+        irg_agent.model_export(rdir=self.model_agent_dir)
 
     def train_algo_only(self):
 
@@ -603,14 +603,14 @@ class Training:
 
                         for others in self.agent_names:
                             if others != agent:
-                                # Add other agent information to their dume memory
-                                self.dume_agents[others].add_memory(
+                                # Add other agent information to their irg memory
+                                self.irg_agents[others].add_memory(
                                     agent_curr_obs[others],
                                     curr_act_buffer[others],
                                     curr_rew_buffer[others])
 
-                                # Get predicted information by dume
-                                predict_obs, _ = self.dume_agents[
+                                # Get predicted information by irg
+                                predict_obs, _ = self.irg_agents[
                                     others](
                                     curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
                                     curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
@@ -670,15 +670,15 @@ class Training:
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
 
-            # Update Main Policy and DUME 
+            # Update Main Policy and irg 
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
                 print("\n")
-                self.dume_agents[agent].update()
-                self.dume_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save dume log
-                self.dume_agents[agent].model_export(rdir=self.model_agent_dir)  # Save dume model
+                self.irg_agents[agent].update()
+                self.irg_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save irg log
+                self.irg_agents[agent].model_export(rdir=self.model_agent_dir)  # Save irg model
                 print("\n")
 
             # Save main log
