@@ -130,6 +130,10 @@ class Training:
             self.experiment_algo()
         elif self.args.train_type == "pong-algo-only":
             self.pong_algo_only()
+        elif self.args.train_type == "pong-dume-only":
+            self.pong_dume_only(agent_name=self.args.agent_choose)
+        elif self.args.train_type == "pong-dume-algo":
+            raise NotImplementedError
     
     def main_log_init(self):
         base_dict = {
@@ -141,6 +145,72 @@ class Training:
             base_dict[agent] = []
         
         return base_dict
+    
+    def pong_dume_only(self, agent_name):
+        if self.env_name != "pong":
+            raise Exception(f"Env must be pong but found {self.env_name} instead")
+        if not self.dume_in_use:
+            raise Exception("dume need to be True and included path to conduct experiment mode")
+
+        # Create Agent
+        dume_agent = self.dume_agents[agent_name]
+
+        # Buffer Memory
+
+        for _ in trange(self.episodes):
+
+            with torch.no_grad():
+
+                self.output_env.reset(seed=None)
+
+                obs_lst, act_lst, rew_lst = [], [], []
+
+                for step in range(self.max_cycles):
+
+                    actions = {a: self.output_env.action_space(a).sample() for a in self.output_env.possible_agents}
+
+                    next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)
+
+                    if self.fix_reward:
+                        rewards = {
+                            agent: step if agent in terms else 0 for agent in self.agent_names
+                        }
+
+                    action = torch.tensor([actions[agent_name]])
+
+                    act_lst.append(action)
+
+                    reward = torch.tensor([rewards[agent_name]])
+
+                    rew_lst.append(reward)
+
+                    try:
+                        curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                            -1,
+                            self.stack_size,
+                            self.frame_size[0],
+                            self.frame_size[1]
+                        )
+                    except:
+                        break
+
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
+
+                    obs_used = agent_curr_obs[agent_name][0]
+
+                    obs_lst.append(obs_used)
+
+                obs_stack = torch.stack(obs_lst)
+                act_stack = torch.stack(act_lst)
+                rew_stack = torch.stack(rew_lst)
+
+                dume_agent.add_memory(obs=obs_stack, acts=act_stack, rews=rew_stack)
+
+        # Dume training
+        dume_agent.update()
+        dume_agent.export_log(rdir=self.log_agent_dir, ep="all")
+        dume_agent.model_export(rdir=self.model_agent_dir)
+        
 
     def pong_algo_only(self):
 

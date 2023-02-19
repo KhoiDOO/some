@@ -34,7 +34,7 @@ if __name__ == '__main__':
     # Training
     parser.add_argument("--train_type", type=str, default="train-dume-only",
                         choices=["train-dume-only", "train-parallel", "train-algo-only", "experiment-dual",
-                                 "experiment-algo", "pong-algo-only"],
+                                 "experiment-algo", "pong-algo-only", "pong-dume-only", "pong-dume-algo"],
                         help="Type of training")
     parser.add_argument("--agent_choose", type=str, default="first_0",
                         choices=["first_0", "second_0", "third_0", "fourth_0", "paddle_0", "paddle_1"],
@@ -66,19 +66,18 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
-    
 
     # Dume
     parser.add_argument("--dume", type=bool, default=True,
                         help="Partial Observation Deep Policy")
     parser.add_argument("--dume_epochs", type=int, default=1,
                         help="Number of epoch for training")
-    parser.add_argument("--dume_bs", type=int, default=20,
+    parser.add_argument("--dume_bs", type=int, default=32,
                         help="Batch size")
     parser.add_argument("--dume_lr", type=float, default=0.005,
                         help="learning rate")
     parser.add_argument("--dume_opt", type=str, default="Adam",
-                        help="Otimizer for DUME")
+                        help="Optimizer for DUME")
     args = parser.parse_args()
 
     print("=" * 80)
@@ -118,22 +117,21 @@ if __name__ == '__main__':
     print("=" * 80)
 
     if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
+        print()
+        print("="*10, "CUDA INFO", "="*10)
         print(f"Cuda is not available on this machine")
+        print("="*10, "CUDA INFO", "="*10)
+        print()
     elif args.device_index > torch.cuda.device_count():
         raise Exception(f"The device chose is higher than the number of available cuda device.\
             There are {torch.cuda.device_count()} but {args.device_index} chose instead")
-    
-    # else:
-    #     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
-    #     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.device_index)
-
-    #     print("="*10, "CUDA INFO", "="*10)
-    #     print(f"Total number of cuda: {torch.cuda.device_count()}")
-    #     print(f"CUDA chose: {args.device_index}")
-    #     print(f"Current CUDA index: {torch.cuda.current_device()}")
-    #     print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
-    #     print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
-    #     print("="*10, "CUDA INFO", "="*10)
+    else:
+        print("="*10, "CUDA INFO", "="*10)
+        print(f"Total number of cuda: {torch.cuda.device_count()}")
+        print(f"CUDA current index: {args.device_index}")
+        print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+        print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+        print("="*10, "CUDA INFO", "="*10)
 
     train = Training(args=args)
     train.train()
