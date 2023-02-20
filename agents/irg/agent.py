@@ -1,11 +1,10 @@
 import os, sys
 sys.path.append(os.getcwd())
+import copy
 import torch
 from torch import nn 
-from torchvision.transforms import Resize
 from torch import optim
 import pandas as pd
-from utils.mapping import *
 from agents.irg.modules.irg_backbone import *
 from tqdm import trange
 
@@ -21,7 +20,7 @@ opt_mapping = {
     "Adam" : optim.Adam
 }
 
-class DUME_Brain(nn.Module):
+class IRG_Brain(nn.Module):
     def __init__(self, backbone_index:int = 4, device:str = "cuda") -> None:
         super().__init__()
         self.device = device
@@ -55,7 +54,7 @@ class DUME_Brain(nn.Module):
         return (pred_obs, pred_rew)
 
 
-class DUME:
+class IRG:
     def __init__(self, batch_size: int = 20, lr: float = 0.005, gamma: float = 0.99,
             optimizer: str = "Adam", agent_name: str = None, epoches:int = 3,
             env_dict = env_def, train_device = "cuda", buffer_device = "cpu") -> None:
@@ -80,8 +79,8 @@ class DUME:
         self.agent_name = agent_name
         self.epoches = epoches
         self.env_dict = env_dict
-        self.brain = DUME_Brain(device = self.train_device, 
-            backbone_index=self.env_dict["num_agents"]).to(device = self.train_device)
+        self.brain = copy.deepcopy(IRG_Brain(device = self.train_device, 
+            backbone_index=self.env_dict["num_agents"]).to(device = self.train_device))
         self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
 
         # memory replay
@@ -442,7 +441,7 @@ if __name__ == "__main__":
         "stack_size" : 4,
         "single_frame_size" : (32, 64)
     }
-    dume = DUME(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
+    dume = IRG(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
     dume.unitest()
     dume.export_log(rdir=os.getcwd() + "/run", ep=1)
     dume.model_export(rdir=os.getcwd() + "/run")
