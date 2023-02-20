@@ -137,7 +137,7 @@ class Training:
         elif self.args.train_type == "pong-irg-only":
             self.pong_irg_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "pong-irg-algo":
-            raise NotImplementedError
+            self.pong_irg_algo()
     
     def main_log_init(self):
         base_dict = {
@@ -149,6 +149,142 @@ class Training:
             base_dict[agent] = []
         
         return base_dict
+    
+    def pong_irg_algo(self):
+        if not self.args.script:
+            raise Exception("script arg cannot be None in this mode")
+        if not self.irg_in_use:
+            raise Exception("irg need to be True and included path to conduct experiment mode")
+        
+        script_dict = json.load(open(self.script_path))
+
+        irg_weight_paths = {
+            agent: os.getcwd() + f"/run/train/{script_dict[agent]}/weights/irg_{agent}.pt" for agent in
+            self.agent_names
+        }
+
+        for agent in self.agent_names:
+            if self.irg_in_use:
+                self.irg_agents[agent].brain.load_state_dict(
+                    torch.load(irg_weight_paths[agent], map_location=self.train_device)
+                )
+        
+        for ep in trange(self.episodes):
+
+            main_log = self.main_log_init()
+
+            with torch.no_grad():
+
+                reward_step = {
+                    agent : 0 for agent in self.agent_names
+                }
+
+                next_obs = self.output_env.reset(seed=None)
+
+                curr_act_buffer = {agent: torch.zeros(1, 1) for agent in self.agent_names}
+                prev_act_buffer = {agent: torch.zeros(1, 1) for agent in self.agent_names}
+                curr_rew_buffer = {agent: torch.zeros(1, 1) for agent in self.agent_names}
+                prev_rew_buffer = {agent: torch.zeros(1, 1) for agent in self.agent_names}
+
+                for step in range(self.max_cycles):
+                    
+                    try:
+                        curr_obs = batchify_obs(next_obs, self.buffer_device)[0].view(
+                            -1,
+                            self.stack_size,
+                            self.frame_size[0],
+                            self.frame_size[1]
+                        )
+                    except:
+                        break
+
+                    agent_curr_obs = env_parobs_mapping[self.env_name](curr_obs, p_size=self.p_size)
+
+                    for agent in self.agent_names:
+                        base_agent_curr_obs = agent_curr_obs[agent]  # get obs specific to agent
+
+                        obs_merges = {
+                            agent: base_agent_curr_obs
+                        }  # Create obs dict with restricted view
+
+                        for others in self.agent_names:
+                            if others != agent:
+                                predict_obs, _ = self.irg_agents[others](
+                                    curr_obs=agent_curr_obs[others].to(device=self.train_device, dtype=torch.float),
+                                    curr_act=curr_act_buffer[others].to(device=self.train_device, dtype=torch.float),
+                                    prev_act=prev_act_buffer[others].to(device=self.train_device, dtype=torch.float),
+                                    prev_rew=prev_rew_buffer[others].to(device=self.train_device, dtype=torch.float)
+                                )
+
+                                # add others' predicted obs to obs_dict
+                                obs_merges[others] = predict_obs
+
+                        # Merge Observation
+                        base_agent_merge_obs = env_parobs_merge_mapping[self.env_name](
+                            obs_merges=obs_merges,
+                            frame_size=tuple(self.frame_size),
+                            stack_size=self.stack_size,
+                            p_size=self.p_size
+                        )
+
+                        # Make action
+                        action = self.main_algo_agents[agent].make_action(
+                            base_agent_merge_obs.to(device=self.train_device, dtype=torch.float)
+                        )
+
+                        # Update buffer
+                        curr_act_buffer[agent] = torch.Tensor([[action]])
+
+                    # Extract action from buffer
+
+                    actions = {
+                        agent: int(curr_act_buffer[agent][0].item()) for agent in curr_act_buffer
+                    }
+
+                    next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
+
+                    # Reward Step increment
+                    for agent in self.agent_names:
+                        reward_step[agent] += 1
+
+                    # Logging reward step
+                    main_log["ep"].append(ep)
+                    main_log["step"].append(step)
+                    for agent in self.agent_names:
+                        main_log[agent].append(reward_step[agent])
+                    
+                    # Reupdate step after one agent die
+                    for agent_name in self.agent_names:
+                        if rewards[agent_name] == -1:
+                            reward_step = {
+                                agent : 0 for agent in self.agent_names
+                            }
+                    
+                    # Fix Reward
+                    if self.fix_reward:                        
+                        for agent in self.agent_names:
+                            rewards[agent] = 0 - rewards[agent]
+
+                    # Re-update buffer
+                    prev_act_buffer = curr_act_buffer
+                    prev_rew_buffer = curr_rew_buffer
+                    curr_rew_buffer = {
+                        agent: torch.Tensor([[rewards[agent]]]) for agent in rewards
+                    }          
+
+                    # Update buffer for algo actor critic
+                    for agent in rewards:
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+                    
+            for agent in self.agent_names:
+                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)
+                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)
+
+            main_log_path = self.main_log_dir + f"/{ep}.parquet"
+            main_log_df = pd.DataFrame(main_log)
+            main_log_df.to_parquet(main_log_path)
+
     
     def pong_irg_only(self, agent_name):
         if self.env_name != "pong":
@@ -217,7 +353,6 @@ class Training:
         irg_agent.export_log(rdir=self.log_agent_dir, ep="all")
         irg_agent.model_export(rdir=self.model_agent_dir)
         
-
     def pong_algo_only(self):
 
         # Train and logging in parallel

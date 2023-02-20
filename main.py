@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument("--agent_choose", type=str, default="first_0",
                         choices=["first_0", "second_0", "third_0", "fourth_0", "paddle_0", "paddle_1"],
                         help="Agent chose for training, only available for irg or algo irg-only mode")
-    parser.add_argument("--script", type=str, default="sample",
+    parser.add_argument("--script", type=str,
                         help="Script includes weight paths to model, only needed in experiment mode, "
                              "detail in /script folder, create your_setting.json same as sample.json "
                              "for conducting custom experiment")
