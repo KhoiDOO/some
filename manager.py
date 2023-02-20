@@ -264,9 +264,11 @@ class Training:
                     for agent in self.agent_names:
                         main_log[agent].append(reward_step[agent])
                     
-                    for agent in self.agent_names:
-                        if rewards[agent] == -1:
-                            reward_step[agent] = 0
+                    for agent_name in self.agent_names:
+                        if rewards[agent_name] == -1:
+                            reward_step = {
+                                agent : 0 for agent in self.agent_names
+                            }
 
                     # Log step 
                     if self.fix_reward:                        
