@@ -307,7 +307,7 @@ class IRG:
             ep (int): current episode
             extension (str, optional): save file extension. Defaults to ".parquet".
         """
-        sub_dir = rdir + "/dume"
+        sub_dir = rdir + "/irg"
         if not os.path.exists(sub_dir):
             os.mkdir(sub_dir)    
         agent_sub_dir = sub_dir + f"/{self.agent_name}"
@@ -329,7 +329,7 @@ class IRG:
         Args:
             dir (str): folder for saving model weights
         """
-        filename = f"dume_{self.agent_name}"
+        filename = f"irg_{self.agent_name}"
         filepath = rdir + f"/{filename}.pt"
         torch.save(self.brain.state_dict(), filepath)
 
