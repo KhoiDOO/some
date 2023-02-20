@@ -285,7 +285,6 @@ class Training:
             main_log_df = pd.DataFrame(main_log)
             main_log_df.to_parquet(main_log_path)
 
-    
     def pong_irg_only(self, agent_name):
         if self.env_name != "pong":
             raise Exception(f"Env must be pong but found {self.env_name} instead")
@@ -361,8 +360,6 @@ class Training:
         
         for ep in trange(self.episodes):
 
-            # main_log = log_mapping[self.env_name]
-
             main_log = self.main_log_init()
 
             reward_step = {
@@ -393,17 +390,10 @@ class Training:
                     
                     for agent in self.agent_names:
                         reward_step[agent] += 1
-
-                    main_log["ep"].append(ep)
-                    main_log["step"].append(step)
-                    for agent in self.agent_names:
-                        main_log[agent].append(reward_step[agent])
                     
                     for agent_name in self.agent_names:
-                        if rewards[agent_name] == -1:
-                            reward_step = {
-                                agent : 0 for agent in self.agent_names
-                            }
+                        if rewards[agent_name] == 1:
+                            reward_step[agent] += 1
 
                     # Log step 
                     if self.fix_reward:                        
@@ -412,6 +402,12 @@ class Training:
                     
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+                
+                # Update no. win in episode
+                main_log["ep"].append(ep)
+                main_log["step"].append(step)
+                for agent in self.agent_names:
+                    main_log[agent].append(reward_step[agent])
 
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
