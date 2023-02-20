@@ -36,7 +36,7 @@ class Training:
 
         # setting path
         self.save_train_set_path = os.getcwd() + f"/run/train/{self.current_time}/settings/settings.json"
-        self.save_valid_set_path = os.getcwd() + f"/run/val/{self.current_time}/settings/settings.json"
+        # self.save_valid_set_path = os.getcwd() + f"/run/val/{self.current_time}/settings/settings.json"
 
         # agent logging save_dir
         self.log_agent_dir = os.getcwd() + f"/run/train/{self.current_time}/log"
@@ -51,8 +51,8 @@ class Training:
 
         with open(self.save_train_set_path, "w") as outfile:
             json.dump(args_dict, outfile)
-        with open(self.save_valid_set_path, "w") as outfile:
-            json.dump(args_dict, outfile)
+        # with open(self.save_valid_set_path, "w") as outfile:
+        #     json.dump(args_dict, outfile)
 
         self.env_name = args_dict["env"]
         self.stack_size = args_dict["stack_size"]
