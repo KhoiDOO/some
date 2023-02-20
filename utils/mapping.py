@@ -30,6 +30,6 @@ opt_mapping = {
 
 agent_mapping = {
     "ppo" : PPO,
-    "dume" : DUME
+    "irg" : DUME
 }
 
