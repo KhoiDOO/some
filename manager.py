@@ -260,6 +260,10 @@ class Training:
                                 agent : 0 for agent in self.agent_names
                             }
                     
+                    # for agent_name in self.agent_names:
+                    #     if rewards[agent_name] == 1:
+                    #         reward_step[agent] += 1
+                    
                     # Fix Reward
                     if self.fix_reward:                        
                         for agent in self.agent_names:
@@ -275,6 +279,12 @@ class Training:
                     # Update buffer for algo actor critic
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+                
+                # # Update no. win in episode
+                # main_log["ep"].append(ep)
+                # main_log["step"].append(step)
+                # for agent in self.agent_names:
+                #     main_log[agent].append(reward_step[agent])
                     
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
@@ -387,9 +397,6 @@ class Training:
                     }
 
                     next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
-                    
-                    for agent in self.agent_names:
-                        reward_step[agent] += 1
                     
                     for agent_name in self.agent_names:
                         if rewards[agent_name] == 1:
