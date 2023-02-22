@@ -370,9 +370,17 @@ class Training:
         
         for ep in trange(self.episodes):
 
-            main_log = self.main_log_init()
+            reward_log = self.main_log_init()
+
+            step_log = self.main_log_init()
+
+            win_log = self.main_log_init()
 
             reward_step = {
+                agent : 0 for agent in self.agent_names
+            }
+
+            reward_win = {
                 agent : 0 for agent in self.agent_names
             }
 
@@ -400,7 +408,12 @@ class Training:
                     
                     for agent_name in self.agent_names:
                         if rewards[agent_name] == 1:
-                            reward_step[agent] += 1
+                            reward_win[agent] += 1
+                    
+                    reward_log["ep"].append(ep)
+                    reward_log["step"].append(step)
+                    for agent in self.agent_names:
+                        reward_log[agent].append(rewards[agent])
 
                     # Log step 
                     if self.fix_reward:                        
@@ -411,19 +424,23 @@ class Training:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
                 
                 # Update no. win in episode
-                main_log["ep"].append(ep)
-                main_log["step"].append(step)
+                win_log["ep"].append(ep)
+                win_log["step"].append(step)
                 for agent in self.agent_names:
-                    main_log[agent].append(reward_step[agent])
+                    win_log[agent].append(reward_win[agent])
 
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
             
-            main_log_path = self.main_log_dir + f"/{ep}.parquet"
-            main_log_df = pd.DataFrame(main_log)
-            main_log_df.to_parquet(main_log_path)
+            reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
+            reward_log_df = pd.DataFrame(reward_log)
+            reward_log_df.to_parquet(reward_log_path)
+
+            win_log_path = self.main_log_dir + f"/{ep}_win_log.parquet"
+            win_log_df = pd.DataFrame(win_log)
+            win_log_df.to_parquet(win_log_path)
 
     def experiment_algo(self):
 
