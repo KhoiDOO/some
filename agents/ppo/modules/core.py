@@ -45,7 +45,7 @@ class ACMultiHead(ActorCritic):
     def act(self, obs: torch.Tensor):
         x = self.network(obs/255)
         action_probs = self.actor(x)
-        dist = Categorical(action_probs)
+        dist = Categorical()(action_probs)
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -56,7 +56,7 @@ class ACMultiHead(ActorCritic):
     def evaluate(self, obs, action):
         x = self.network(obs/255)
         action_probs = self.actor(x)
-        dist = Categorical(action_probs)
+        dist = Categorical()(action_probs)
 
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
