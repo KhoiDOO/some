@@ -3,6 +3,7 @@ sys.path.append(os.getcwd())
 import argparse
 from agents.ppo.modules.buffer import RolloutBuffer
 from agents.ppo.modules.backbone import *
+from agents.ppo.modules.straight_siamese import ActorCriticSiameseV1
 import numpy as np
 import torch
 import torch.nn as nn
@@ -72,13 +73,14 @@ class PPO:
         
         self.buffer = RolloutBuffer()
 
-        self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
+        # self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
+        self.policy = ActorCriticSiameseV1(stack_size = self.stack_size, num_actions = action_dim).to(device)
 
         self.actor_opt = opt_mapping[optimizer](self.policy.actor.parameters(), lr = lr_actor)
         self.critic_opt = opt_mapping[optimizer](self.policy.critic.parameters(), lr = lr_critic)
 
-        self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
-        self.policy_old.load_state_dict(self.policy.state_dict())
+        # self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
+        # self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.device = device
 
@@ -101,7 +103,7 @@ class PPO:
             int: action
         """
         with torch.no_grad():
-            action, action_logprob, obs_val = self.policy_old.act(obs.to(self.device, dtype=torch.float))
+            action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
             
         self.buffer.observations.append(obs)
         self.buffer.actions.append(action)
@@ -112,7 +114,7 @@ class PPO:
     
     def make_action(self, obs: torch.Tensor):
         with torch.no_grad():
-            action, action_logprob, obs_val = self.policy_old.act(obs.to(self.device, dtype=torch.float))
+            action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
         return action.item()
     
     def debug(self):
@@ -230,7 +232,15 @@ class PPO:
                 advantages = reward_batch[idx].detach().to(self.device) - obs_values_batch[idx].detach().to(self.device)
 
                 # Evaluating old actions and values
-                logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
+                # logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
+
+                # Evaluation
+                action_probs = self.policy.actor(obs_batch[idx])
+                dist = Categorical(action_probs)
+
+                logprobs = dist.log_prob(act_batch[idx].to(self.device))
+                dist_entropy = dist.entropy()
+                obs_values = self.policy.critic(obs_batch[idx])
 
                 # match obs_values tensor dimensions with rewards tensor
                 obs_values = torch.squeeze(obs_values)
@@ -243,15 +253,12 @@ class PPO:
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                actor_loss = torch.tensor(torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy), requires_grad=True)
+                actor_loss = torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy).clone().detach().requires_grad_(True)
 
-                critic_loss = torch.tensor(torch.mean(0.5 * nn.MSELoss()(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device))), requires_grad=True)
+                critic_loss = torch.mean(0.5 * nn.MSELoss()(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device))).clone().detach().requires_grad_(True)
 
                 # Logging
                 self.logging(epoch=e, actor_loss=actor_loss.item(), critic_loss = critic_loss.item())
-
-                # Debug
-                self.debug()
                 
                 # take gradient step
                 self.actor_opt.zero_grad()
@@ -260,10 +267,13 @@ class PPO:
 
                 self.critic_opt.zero_grad()
                 critic_loss.backward()
-                self.actor_opt.step()
+                self.critic_opt.step()
                 
             # Copy new weights into old policy
-            self.policy_old.load_state_dict(self.policy.state_dict())
+            # self.policy_old.load_state_dict(self.policy.state_dict())
+
+            # Debug
+            # self.debug()
 
         # clear buffer
         self.buffer.clear()
