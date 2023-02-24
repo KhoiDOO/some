@@ -122,7 +122,6 @@ class PPO:
         act_stack = torch.stack(self.buffer.actions, dim = 0)
         log_prob_stack = torch.stack([x[0] for x in self.buffer.logprobs])
         obs_val_stack = torch.stack([x[0] for x in self.buffer.obs_values])
-        # print(self.buffer.rewards)
         rev_stack = torch.FloatTensor(self.buffer.rewards).view(-1, 1)
 
         with torch.no_grad():
@@ -206,12 +205,6 @@ class PPO:
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
         rewards = [torch.Tensor(reward) for reward in rewards]
 
-        # convert list to tensor
-        # old_obs = torch.squeeze(torch.stack(self.buffer.observations, dim=0)).detach().to(self.device)
-        # old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(self.device)
-        # old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(self.device)
-        # old_obs_values = torch.squeeze(torch.stack(self.buffer.obs_values, dim=0)).detach().to(self.device)
-
         # Batch Split
         obs_batch = batch_split(self.buffer.observations, self.batch_size)
         act_batch = batch_split(self.buffer.actions, self.batch_size)
@@ -235,12 +228,12 @@ class PPO:
                 # logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
 
                 # Evaluation
-                action_probs = self.policy.actor(obs_batch[idx])
+                action_probs = self.policy.actor(obs_batch[idx]/255)
                 dist = Categorical(action_probs)
 
                 logprobs = dist.log_prob(act_batch[idx].to(self.device))
                 dist_entropy = dist.entropy()
-                obs_values = self.policy.critic(obs_batch[idx])
+                obs_values = self.policy.critic(obs_batch[idx]/255)
 
                 # match obs_values tensor dimensions with rewards tensor
                 obs_values = torch.squeeze(obs_values)
@@ -262,18 +255,18 @@ class PPO:
                 
                 # take gradient step
                 self.actor_opt.zero_grad()
-                actor_loss.backward()
+                actor_loss.backward(retain_graph=True)
                 self.actor_opt.step()
 
                 self.critic_opt.zero_grad()
-                critic_loss.backward()
+                critic_loss.backward(retain_graph=True)
                 self.critic_opt.step()
                 
             # Copy new weights into old policy
             # self.policy_old.load_state_dict(self.policy.state_dict())
 
             # Debug
-            # self.debug()
+            self.debug()
 
         # clear buffer
         self.buffer.clear()
