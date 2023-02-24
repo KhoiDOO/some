@@ -72,26 +72,21 @@ class PPO:
         
         self.buffer = RolloutBuffer()
 
-        self.policy = backbone_mapping[backbone](stack_size = self.stack_size, 
-                                    num_actions = action_dim).to(device)
-                                    
-        self.optimizer = opt_mapping[optimizer]([
-            {'params': self.policy.actor.parameters(), 'lr': lr_actor},
-            {'params': self.policy.critic.parameters(), 'lr': lr_critic}
-            ])
+        self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
 
-        self.policy_old = backbone_mapping[backbone](stack_size = stack_size, 
-                                    num_actions = action_dim).to(device)
+        self.actor_opt = opt_mapping[optimizer](self.policy.actor.parameters(), lr = lr_actor)
+        self.critic_opt = opt_mapping[optimizer](self.policy.critic.parameters(), lr = lr_critic)
+
+        self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
-        
-        self.MseLoss = nn.MSELoss()
 
         self.device = device
 
         # Track
         self.log = {
             "epoch" : [],
-            "loss" : [],
+            "actor_loss" : [],
+            "critic_loss" : []
         }
     
     def select_action(self, obs: torch.Tensor):
@@ -119,6 +114,39 @@ class PPO:
         with torch.no_grad():
             action, action_logprob, obs_val = self.policy_old.act(obs.to(self.device, dtype=torch.float))
         return action.item()
+    
+    def debug(self):
+        obs_stack = torch.stack([x[0] for x in self.buffer.observations])
+        act_stack = torch.stack(self.buffer.actions, dim = 0)
+        log_prob_stack = torch.stack([x[0] for x in self.buffer.logprobs])
+        obs_val_stack = torch.stack([x[0] for x in self.buffer.obs_values])
+        # print(self.buffer.rewards)
+        rev_stack = torch.FloatTensor(self.buffer.rewards).view(-1, 1)
+
+        with torch.no_grad():
+
+            advantages = rev_stack.to(self.device) - obs_val_stack.detach().to(self.device)
+
+            # Evaluating old actions and values
+            logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_stack.to(self.device), act_stack.to(self.device))
+
+            # match obs_values tensor dimensions with rewards tensor
+            obs_values = torch.squeeze(obs_values)
+            
+            # Finding the ratio (pi_theta / pi_theta__old)
+            ratios = torch.exp(logprobs - log_prob_stack.to(self.device))
+
+            # Finding Surrogate Loss   
+            surr1 = ratios * advantages
+            surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
+
+            # final loss of clipped objective PPO
+            actor_loss = torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy)
+
+            critic_loss = torch.mean(0.5 * nn.MSELoss()(obs_val_stack.to(self.device), rev_stack.to(self.device)))
+
+            print(f"actor: {actor_loss.item()} - critic: {critic_loss.item()}")
+
     
     def insert_buffer(self, single_reward: int, single_is_terminals: bool):
         """Insert reward and terminal information to the buffer
@@ -215,17 +243,24 @@ class PPO:
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device)) - 0.01 * dist_entropy
+                actor_loss = torch.tensor(torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy), requires_grad=True)
 
-                loss = torch.mean(loss)
+                critic_loss = torch.tensor(torch.mean(0.5 * nn.MSELoss()(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device))), requires_grad=True)
 
                 # Logging
-                self.logging(epoch=e, loss=loss.item())
+                self.logging(epoch=e, actor_loss=actor_loss.item(), critic_loss = critic_loss.item())
+
+                # Debug
+                self.debug()
                 
                 # take gradient step
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                self.actor_opt.zero_grad()
+                actor_loss.backward()
+                self.actor_opt.step()
+
+                self.critic_opt.zero_grad()
+                critic_loss.backward()
+                self.actor_opt.step()
                 
             # Copy new weights into old policy
             self.policy_old.load_state_dict(self.policy.state_dict())
@@ -233,9 +268,10 @@ class PPO:
         # clear buffer
         self.buffer.clear()
 
-    def logging(self, epoch, loss):
+    def logging(self, epoch, actor_loss, critic_loss):
         self.log["epoch"].append(epoch)
-        self.log["loss"].append(loss)
+        self.log["actor_loss"].append(actor_loss)
+        self.log["critic_loss"].append(critic_loss)
 
     def export_log(self, rdir: str, ep: int, extension: str = ".parquet"):
         """Export log to file
@@ -270,7 +306,7 @@ class PPO:
         """
         filename = f"ppo_{self.agent_name}"
         filpath = rdir + f"/{filename}.pt"
-        torch.save(self.policy_old.state_dict(), filpath)
+        torch.save(self.policy.state_dict(), filpath)
 
 
 if __name__ == "__main__":
@@ -279,16 +315,19 @@ if __name__ == "__main__":
     parser.add_argument("--backbone", type=str, choices=[
         "siamese", "siamese-small", "multi-head", "multi-head-small"
         ],
-        help="Backbone")
+        help="Backbone", default="siamese")
     parser.add_argument("--device", type=str, choices=[
         "cuda", "cpu"
         ],
-        help="Device")
+        help="Device", default="cpu")
+    parser.add_argument("--epoch", type=int,
+        help="epochs", default=50)
     
     args = parser.parse_args()
 
-    ppo = PPO(backbone=args.backbone, device=args.device)
-    ppo.buffer_sample()
+    ppo = PPO(backbone=args.backbone, device=args.device, K_epochs=args.epoch)
+    ppo.buffer_sample(sample_count = 124)
+    # ppo.debug()
     ppo.update()
-    ppo.export_log(rdir = os.getcwd() + "/run", ep = 1)
-    ppo.model_export(rdir = os.getcwd() + "/run")
+    # ppo.export_log(rdir = os.getcwd() + "/run", ep = 1)
+    # ppo.model_export(rdir = os.getcwd() + "/run")
