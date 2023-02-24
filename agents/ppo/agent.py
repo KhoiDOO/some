@@ -228,12 +228,12 @@ class PPO:
                 # logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
 
                 # Evaluation
-                action_probs = self.policy.actor(obs_batch[idx]/255)
+                action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
                 dist = Categorical(action_probs)
 
                 logprobs = dist.log_prob(act_batch[idx].to(self.device))
                 dist_entropy = dist.entropy()
-                obs_values = self.policy.critic(obs_batch[idx]/255)
+                obs_values = self.policy.critic(obs_batch[idx].to(self.device)/255)
 
                 # match obs_values tensor dimensions with rewards tensor
                 obs_values = torch.squeeze(obs_values)
