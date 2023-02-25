@@ -74,6 +74,7 @@ class Training:
         self.actor_lr = args_dict["actor_lr"]
         self.critic_lr = args_dict["critic_lr"]
         self.optimizer = args_dict["opt"]
+        self.debug_mode = args_dict["debug_mode"]
 
         self.irg_in_use = args_dict["irg"]
         self.irg_epochs = args_dict["irg_epochs"]
@@ -98,7 +99,8 @@ class Training:
             device=self.train_device,
             optimizer=self.optimizer,
             batch_size=self.batch_size,
-            agent_name=name
+            agent_name=name,
+            debug_mode = self.debug_mode
         ) for name in self.agent_names}
 
         self.env_irg_def = {
