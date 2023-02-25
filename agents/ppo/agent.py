@@ -45,8 +45,8 @@ def batch_split(data: list, chunk_size):
     return batch_data
 
 class PPO:
-    def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.0003, 
-                lr_critic:float = 0.001, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
+    def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.05, 
+                lr_critic:float = 0.05, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
                 device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
                 agent_name: str = None, backbone:str = "siamese"):
         """Constructor of PPO
@@ -73,14 +73,13 @@ class PPO:
         
         self.buffer = RolloutBuffer()
 
-        # self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
-        self.policy = ActorCriticSiameseV1(stack_size = self.stack_size, num_actions = action_dim).to(device)
+        self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
 
         self.actor_opt = opt_mapping[optimizer](self.policy.actor.parameters(), lr = lr_actor)
         self.critic_opt = opt_mapping[optimizer](self.policy.critic.parameters(), lr = lr_critic)
 
-        # self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
-        # self.policy_old.load_state_dict(self.policy.state_dict())
+        self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
+        self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.device = device
 
@@ -148,7 +147,21 @@ class PPO:
 
             print(f"actor: {actor_loss.item()} - critic: {critic_loss.item()}")
 
-    
+            if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
+                print("Model is not updated")
+            else:
+                print("Model is updated")
+
+            if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
+                print("Actor is not updated")
+            else:
+                print("Actor is updated")
+            
+            if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
+                print("Critic is not updated")
+            else:
+                print("Critic is updated")
+
     def insert_buffer(self, single_reward: int, single_is_terminals: bool):
         """Insert reward and terminal information to the buffer
 
@@ -246,24 +259,21 @@ class PPO:
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                actor_loss = torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy).clone().detach().requires_grad_(True)
+                actor_loss = torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy).requires_grad_(True)
 
-                critic_loss = torch.mean(0.5 * nn.MSELoss()(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device))).clone().detach().requires_grad_(True)
+                critic_loss = torch.mean(0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))).requires_grad_(True)
 
                 # Logging
                 self.logging(epoch=e, actor_loss=actor_loss.item(), critic_loss = critic_loss.item())
                 
                 # take gradient step
                 self.actor_opt.zero_grad()
-                actor_loss.backward(retain_graph=True)
+                actor_loss.backward()
                 self.actor_opt.step()
 
                 self.critic_opt.zero_grad()
-                critic_loss.backward(retain_graph=True)
+                critic_loss.backward()
                 self.critic_opt.step()
-                
-            # Copy new weights into old policy
-            # self.policy_old.load_state_dict(self.policy.state_dict())
 
             # Debug
             self.debug()
