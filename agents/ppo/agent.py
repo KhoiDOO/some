@@ -48,7 +48,8 @@ class PPO:
     def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.05, 
                 lr_critic:float = 0.05, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
                 device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
-                agent_name: str = None, backbone:str = "siamese", target_kl = 0.01):
+                agent_name: str = None, backbone:str = "siamese", target_kl = 0.01,
+                debug_mode = None):
         """Constructor of PPO
 
         Args:
@@ -71,6 +72,7 @@ class PPO:
         self.stack_size = stack_size
         self.batch_size = batch_size
         self.agent_name = agent_name
+        self.debug_mode = debug_mode
         
         self.buffer = RolloutBuffer()
 
@@ -116,52 +118,6 @@ class PPO:
         with torch.no_grad():
             action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
         return action.item()
-    
-    def debug(self):
-        obs_stack = torch.stack([x[0] for x in self.buffer.observations])
-        act_stack = torch.stack(self.buffer.actions, dim = 0)
-        log_prob_stack = torch.stack([x[0] for x in self.buffer.logprobs])
-        obs_val_stack = torch.stack([x[0] for x in self.buffer.obs_values])
-        rev_stack = torch.FloatTensor(self.buffer.rewards).view(-1, 1)
-
-        with torch.no_grad():
-
-            advantages = rev_stack.to(self.device) - obs_val_stack.detach().to(self.device)
-
-            # Evaluating old actions and values
-            logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_stack.to(self.device), act_stack.to(self.device))
-
-            # match obs_values tensor dimensions with rewards tensor
-            obs_values = torch.squeeze(obs_values)
-            
-            # Finding the ratio (pi_theta / pi_theta__old)
-            ratios = torch.exp(logprobs - log_prob_stack.to(self.device))
-
-            # Finding Surrogate Loss   
-            obj = ratios * advantages
-            onj_clipped = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
-
-            # final loss of clipped objective PPO
-            actor_loss = torch.mean(-torch.min(obj, onj_clipped) - 0.01 * dist_entropy)
-
-            critic_loss = torch.mean(0.5 * nn.MSELoss()(obs_val_stack.to(self.device), rev_stack.to(self.device)))
-
-            print(f"actor: {actor_loss.item()} - critic: {critic_loss.item()}")
-
-            if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
-                print("Model is not updated")
-            else:
-                print("Model is updated")
-
-            if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
-                print("Actor is not updated")
-            else:
-                print("Actor is updated")
-            
-            if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
-                print("Critic is not updated")
-            else:
-                print("Critic is updated")
 
     def insert_buffer(self, single_reward: int, single_is_terminals: bool):
         """Insert reward and terminal information to the buffer
@@ -203,7 +159,7 @@ class PPO:
         """Self updating policy of PPO algoirithm
         """
         # Log
-        print(f"PPO Update for agent {self.agent_name}")
+        print(f"\nPPO Update for agent {self.agent_name}")
 
         # Monte Carlo estimate of returns
         rewards = []
@@ -226,9 +182,6 @@ class PPO:
         obs_values_batch = batch_split(self.buffer.obs_values, self.batch_size)
         reward_batch = batch_split(rewards, self.batch_size)
 
-        # calculate advantages
-        # advantages = rewards.detach() - old_obs_values.detach()
-
         # Optimize policy for K epochs
         for e in trange(self.K_epochs):
 
@@ -237,9 +190,6 @@ class PPO:
 
                 # cal advantage
                 advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
-
-                # Evaluating old actions and values
-                # logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
 
                 # Evaluation
                 action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
@@ -269,7 +219,21 @@ class PPO:
 
                 # Approx KL
                 approx_kl = (logprobs_batch[idx].detach().to(self.device) - logprobs).mean()
-                
+
+                if self.debug_mode == None:
+                    pass
+                elif self.debug_mode == 0:
+                    print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+                elif self.debug_mode == 1:
+                    print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+
+                    if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
+                        print("Policy is updated")
+                    if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
+                        print("Actor is updated")
+                    if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
+                        print("Critic is updated")
+                        
                 # take gradient step
                 if approx_kl <= 1.5 * self.target_kl:
                     self.actor_opt.zero_grad()
@@ -279,6 +243,8 @@ class PPO:
                 self.critic_opt.zero_grad()
                 critic_loss.backward()
                 self.critic_opt.step()
+
+                self.policy_old.load_state_dict(self.policy.state_dict())
 
             # Debug
             self.debug()
