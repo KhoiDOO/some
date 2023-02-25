@@ -236,7 +236,7 @@ class PPO:
             for idx in range(len(obs_batch)):
 
                 # cal advantage
-                advantages = reward_batch[idx].detach().to(self.device) - obs_values_batch[idx].detach().to(self.device)
+                advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
 
                 # Evaluating old actions and values
                 # logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
@@ -253,19 +253,19 @@ class PPO:
                 obs_values = torch.squeeze(obs_values)
                 
                 # Finding the ratio (pi_theta / pi_theta__old)
-                ratios = torch.exp(logprobs - logprobs_batch[idx].detach().to(self.device))
+                ratios = torch.exp(logprobs - logprobs_batch[idx].to(self.device))
 
                 # Finding Surrogate Loss   
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                actor_loss = torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy).requires_grad_(True)
+                actor_loss = -torch.min(surr1, surr2).mean() - 0.01 * dist_entropy.mean()
 
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
                 # Logging
-                self.logging(epoch=e, actor_loss=actor_loss.item(), critic_loss = critic_loss.item())
+                self.logging(epoch=e, actor_loss = actor_loss.item(), critic_loss = critic_loss.item())
 
                 # Approx KL
                 approx_kl = (logprobs_batch[idx].detach().to(self.device) - logprobs).mean()
