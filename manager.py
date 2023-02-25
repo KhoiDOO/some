@@ -412,8 +412,6 @@ class Training:
                                 rewards[agent] = -10
                             else:
                                 rewards[agent] = 10
-
-                    print(rewards)
                     
                     reward_log["ep"].append(ep)
                     reward_log["step"].append(step)
