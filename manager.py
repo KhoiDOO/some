@@ -66,6 +66,7 @@ class Training:
         self.gamma = args_dict["gamma"]
         self.p_size = args_dict["view"]
         self.fix_reward = args_dict["fix_reward"]
+        self.max_reward = args_dict["max_reward"]
 
         self.agent_algo = args_dict["agent"]
         self.epochs = args_dict["epochs"]
@@ -133,7 +134,7 @@ class Training:
         elif self.args.train_type == "experiment-algo":
             self.experiment_algo()
         elif self.args.train_type == "pong-algo-only":
-            self.pong_algo_only()
+            self.pong_algo_only(max_reward=self.max_reward)
         elif self.args.train_type == "pong-irg-only":
             self.pong_irg_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "pong-irg-algo":
@@ -360,7 +361,7 @@ class Training:
         irg_agent.export_log(rdir=self.log_agent_dir, ep="all")
         irg_agent.model_export(rdir=self.model_agent_dir)
         
-    def pong_algo_only(self):
+    def pong_algo_only(self, max_reward = 100):
 
         # Train and logging in parallel
         if self.env_name != "pong":
@@ -401,16 +402,23 @@ class Training:
                     for agent_name in self.agent_names:
                         if rewards[agent_name] == 1:
                             reward_win[agent] += 1
+
+                    # Log step 
+                    if self.fix_reward:                        
+                        for agent in self.agent_names:
+                            if rewards[agent] == 0:
+                                rewards[agent] = max_reward/(step + 1)
+                            elif rewards[agent] == -1:
+                                rewards[agent] = -10
+                            else:
+                                rewards[agent] = 10
+
+                    print(rewards)
                     
                     reward_log["ep"].append(ep)
                     reward_log["step"].append(step)
                     for agent in self.agent_names:
                         reward_log[agent].append(rewards[agent])
-
-                    # Log step 
-                    if self.fix_reward:                        
-                        for agent in self.agent_names:
-                            rewards[agent] = 0 - rewards[agent]                        
                     
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
