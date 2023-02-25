@@ -206,11 +206,11 @@ class PPO:
                 ratios = torch.exp(logprobs - logprobs_batch[idx].to(self.device))
 
                 # Finding Surrogate Loss   
-                surr1 = ratios * advantages
-                surr2 = torch.clamp(ratios, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * advantages
+                obj = ratios * advantages
+                obj_clip = torch.clamp(ratios, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                actor_loss = -torch.min(surr1, surr2).mean() - 0.01 * dist_entropy.mean()
+                actor_loss = -torch.min(obj, obj_clip).mean() - 0.01 * dist_entropy.mean()
 
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
@@ -245,9 +245,6 @@ class PPO:
                 self.critic_opt.step()
 
                 self.policy_old.load_state_dict(self.policy.state_dict())
-
-            # Debug
-            self.debug()
 
         # clear buffer
         self.buffer.clear()
