@@ -3,6 +3,7 @@ sys.path.append(os.getcwd())
 import argparse
 from agents.ppo.modules.buffer import RolloutBuffer
 from agents.ppo.modules.backbone import *
+from agents.ppo.modules.straight_siamese import ActorCriticSiameseV1
 import numpy as np
 import torch
 import torch.nn as nn
@@ -44,8 +45,8 @@ def batch_split(data: list, chunk_size):
     return batch_data
 
 class PPO:
-    def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.0003, 
-                lr_critic:float = 0.001, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
+    def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.05, 
+                lr_critic:float = 0.05, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
                 device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
                 agent_name: str = None, backbone:str = "siamese"):
         """Constructor of PPO
@@ -101,7 +102,7 @@ class PPO:
             int: action
         """
         with torch.no_grad():
-            action, action_logprob, obs_val = self.policy_old.act(obs.to(self.device, dtype=torch.float))
+            action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
             
         self.buffer.observations.append(obs)
         self.buffer.actions.append(action)
@@ -112,7 +113,7 @@ class PPO:
     
     def make_action(self, obs: torch.Tensor):
         with torch.no_grad():
-            action, action_logprob, obs_val = self.policy_old.act(obs.to(self.device, dtype=torch.float))
+            action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
         return action.item()
     
     def debug(self):
@@ -120,7 +121,6 @@ class PPO:
         act_stack = torch.stack(self.buffer.actions, dim = 0)
         log_prob_stack = torch.stack([x[0] for x in self.buffer.logprobs])
         obs_val_stack = torch.stack([x[0] for x in self.buffer.obs_values])
-        # print(self.buffer.rewards)
         rev_stack = torch.FloatTensor(self.buffer.rewards).view(-1, 1)
 
         with torch.no_grad():
@@ -147,7 +147,21 @@ class PPO:
 
             print(f"actor: {actor_loss.item()} - critic: {critic_loss.item()}")
 
-    
+            if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
+                print("Model is not updated")
+            else:
+                print("Model is updated")
+
+            if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
+                print("Actor is not updated")
+            else:
+                print("Actor is updated")
+            
+            if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
+                print("Critic is not updated")
+            else:
+                print("Critic is updated")
+
     def insert_buffer(self, single_reward: int, single_is_terminals: bool):
         """Insert reward and terminal information to the buffer
 
@@ -204,12 +218,6 @@ class PPO:
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
         rewards = [torch.Tensor(reward) for reward in rewards]
 
-        # convert list to tensor
-        # old_obs = torch.squeeze(torch.stack(self.buffer.observations, dim=0)).detach().to(self.device)
-        # old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(self.device)
-        # old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(self.device)
-        # old_obs_values = torch.squeeze(torch.stack(self.buffer.obs_values, dim=0)).detach().to(self.device)
-
         # Batch Split
         obs_batch = batch_split(self.buffer.observations, self.batch_size)
         act_batch = batch_split(self.buffer.actions, self.batch_size)
@@ -230,7 +238,15 @@ class PPO:
                 advantages = reward_batch[idx].detach().to(self.device) - obs_values_batch[idx].detach().to(self.device)
 
                 # Evaluating old actions and values
-                logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
+                # logprobs, obs_values, dist_entropy = self.policy.evaluate(obs_batch[idx].to(self.device), act_batch[idx].to(self.device))
+
+                # Evaluation
+                action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
+                dist = Categorical(action_probs)
+
+                logprobs = dist.log_prob(act_batch[idx].to(self.device))
+                dist_entropy = dist.entropy()
+                obs_values = self.policy.critic(obs_batch[idx].to(self.device)/255)
 
                 # match obs_values tensor dimensions with rewards tensor
                 obs_values = torch.squeeze(obs_values)
@@ -243,15 +259,12 @@ class PPO:
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                actor_loss = torch.tensor(torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy), requires_grad=True)
+                actor_loss = torch.mean(-torch.min(surr1, surr2) - 0.01 * dist_entropy).requires_grad_(True)
 
-                critic_loss = torch.tensor(torch.mean(0.5 * nn.MSELoss()(obs_values_batch[idx].to(self.device), reward_batch[idx].to(self.device))), requires_grad=True)
+                critic_loss = torch.mean(0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))).requires_grad_(True)
 
                 # Logging
                 self.logging(epoch=e, actor_loss=actor_loss.item(), critic_loss = critic_loss.item())
-
-                # Debug
-                self.debug()
                 
                 # take gradient step
                 self.actor_opt.zero_grad()
@@ -260,10 +273,10 @@ class PPO:
 
                 self.critic_opt.zero_grad()
                 critic_loss.backward()
-                self.actor_opt.step()
-                
-            # Copy new weights into old policy
-            self.policy_old.load_state_dict(self.policy.state_dict())
+                self.critic_opt.step()
+
+            # Debug
+            self.debug()
 
         # clear buffer
         self.buffer.clear()
