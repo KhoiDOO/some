@@ -3,7 +3,6 @@ sys.path.append(os.getcwd())
 import argparse
 from agents.ppo.modules.buffer import RolloutBuffer
 from agents.ppo.modules.backbone import *
-from agents.ppo.modules.straight_siamese import ActorCriticSiameseV1
 import numpy as np
 import torch
 import torch.nn as nn
@@ -218,21 +217,7 @@ class PPO:
                 self.logging(epoch=e, actor_loss = actor_loss.item(), critic_loss = critic_loss.item())
 
                 # Approx KL
-                approx_kl = (logprobs_batch[idx].detach().to(self.device) - logprobs).mean()
-
-                if self.debug_mode == None:
-                    pass
-                elif self.debug_mode == 0:
-                    print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
-                elif self.debug_mode == 1:
-                    print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
-
-                    if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
-                        print("Policy is updated")
-                    if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
-                        print("Actor is updated")
-                    if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
-                        print("Critic is updated")
+                approx_kl = (logprobs_batch[idx].to(self.device) - logprobs).mean()
                         
                 # take gradient step
                 if approx_kl <= 1.5 * self.target_kl:
@@ -245,6 +230,20 @@ class PPO:
                 self.critic_opt.step()
 
                 self.policy_old.load_state_dict(self.policy.state_dict())
+            
+        if self.debug_mode == None:
+            pass
+        elif self.debug_mode == 0:
+            print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+        elif self.debug_mode == 1:
+            print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+
+            if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
+                print("Policy is updated")
+            if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
+                print("Actor is updated")
+            if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
+                print("Critic is updated")
 
         # clear buffer
         self.buffer.clear()
