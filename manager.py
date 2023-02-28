@@ -254,7 +254,7 @@ class Training:
 
                     for agent_name in self.agent_names:
                         if rewards[agent_name] == 1:
-                            reward_win[agent] += 1
+                            reward_win[agent_name] += 1
                     
                     reward_log["ep"].append(ep)
                     reward_log["step"].append(step)
@@ -402,8 +402,8 @@ class Training:
                     next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
                     
                     for agent_name in self.agent_names:
-                        if rewards[agent_name] == 1:
-                            reward_win[agent] += 1
+                        if rewards[agent_name] == -1:
+                            reward_win[agent_name] += 1
 
                     # Log step 
                     if self.fix_reward:                        
