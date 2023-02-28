@@ -47,11 +47,12 @@ if __name__ == '__main__':
                         help="Make reward by step")
     parser.add_argument("--max_reward", type=int, default=100,
                         help="Max reward only use for pong-algo-only mode")
+    parser.add_argument("--inverse_reward", type=bool, default=False,
+                        help="change the sign of reward")
     parser.add_argument("--buffer_device", type=str, default="cpu",
                         help="Device used for memory replay")
     parser.add_argument("--device_index", type=int,
                         help="CUDA index used for training")
-    
 
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],

@@ -36,7 +36,6 @@ class Training:
 
         # setting path
         self.save_train_set_path = os.getcwd() + f"/run/train/{self.current_time}/settings/settings.json"
-        # self.save_valid_set_path = os.getcwd() + f"/run/val/{self.current_time}/settings/settings.json"
 
         # agent logging save_dir
         self.log_agent_dir = os.getcwd() + f"/run/train/{self.current_time}/log"
@@ -51,9 +50,9 @@ class Training:
 
         with open(self.save_train_set_path, "w") as outfile:
             json.dump(args_dict, outfile)
-        # with open(self.save_valid_set_path, "w") as outfile:
-        #     json.dump(args_dict, outfile)
+        
 
+        # Hyperparams Setup
         self.env_name = args_dict["env"]
         self.stack_size = args_dict["stack_size"]
         self.frame_size = args_dict["frame_size"]
@@ -67,6 +66,7 @@ class Training:
         self.p_size = args_dict["view"]
         self.fix_reward = args_dict["fix_reward"]
         self.max_reward = args_dict["max_reward"]
+        self.inverse_reward = args_dict["inverse_reward"]
 
         self.agent_algo = args_dict["agent"]
         self.epochs = args_dict["epochs"]
@@ -82,12 +82,15 @@ class Training:
         self.irg_lr = args_dict["irg_lr"]
         self.irg_optimizer = args_dict["irg_opt"]
 
+        # Environment initialization
         self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
                                                      max_cycles=self.max_cycles, render_mode=self.render_mode,
                                                      parralel=self.parallel, color_reduc=self.color_reduction)
 
+        # Agent names initialization
         self.agent_names = self.output_env.possible_agents
 
+        # Actor Critic Initialization
         self.main_algo_agents = {name: agent_mapping[self.agent_algo](
             stack_size=self.stack_size,
             action_dim=self.output_env.action_space(self.output_env.possible_agents[0]).n,
@@ -103,6 +106,7 @@ class Training:
             debug_mode = self.debug_mode
         ) for name in self.agent_names}
 
+        # Environment Params Dictionary for IRG
         self.env_irg_def = {
             "max_cycles": self.max_cycles,
             "num_agents": len(self.agent_names),
@@ -111,6 +115,7 @@ class Training:
                                   int(self.frame_size[1] / 2))
         }
 
+        # IRG initialization
         if self.irg_in_use:
             self.irg_agents = {name: agent_mapping["irg"](
                 batch_size=self.irg_batch_size,
@@ -140,7 +145,7 @@ class Training:
         elif self.args.train_type == "pong-irg-only":
             self.pong_irg_only(agent_name=self.args.agent_choose)
         elif self.args.train_type == "pong-irg-algo":
-            self.pong_irg_algo()
+            self.pong_irg_algo(max_reward=self.max_reward)
     
     def main_log_init(self):
         base_dict = {
@@ -153,7 +158,7 @@ class Training:
         
         return base_dict
     
-    def pong_irg_algo(self):
+    def pong_irg_algo(self, max_reward = None):
         if not self.args.script:
             raise Exception("script arg cannot be None in this mode")
         if not self.irg_in_use:
@@ -183,10 +188,6 @@ class Training:
             }
 
             with torch.no_grad():
-
-                reward_step = {
-                    agent : 0 for agent in self.agent_names
-                }
 
                 next_obs = self.output_env.reset(seed=None)
 
@@ -253,18 +254,28 @@ class Training:
                     next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
 
                     for agent_name in self.agent_names:
-                        if rewards[agent_name] == 1:
+                        if rewards[agent_name] == -1:
                             reward_win[agent_name] += 1
+                    
+                    # Inverse Reward
+                    if self.inverse_reward:
+                        for agent in self.agent_names:
+                            rewards[agent] = 0 - rewards[agent]
+
+                    # Fix Reward
+                    if self.fix_reward:                        
+                        for agent in self.agent_names:
+                            if rewards[agent] == 0:
+                                rewards[agent] = max_reward/(step + 1)
+                            elif rewards[agent] == -1:
+                                rewards[agent] = -10
+                            else:
+                                rewards[agent] = 10
                     
                     reward_log["ep"].append(ep)
                     reward_log["step"].append(step)
                     for agent in self.agent_names:
                         reward_log[agent].append(rewards[agent])
-                    
-                    # Fix Reward
-                    if self.fix_reward:                        
-                        for agent in self.agent_names:
-                            rewards[agent] = 0 - rewards[agent]
 
                     # Re-update buffer
                     prev_act_buffer = curr_act_buffer
@@ -405,7 +416,12 @@ class Training:
                         if rewards[agent_name] == -1:
                             reward_win[agent_name] += 1
 
-                    # Log step 
+                    # Inverse reward
+                    if self.inverse_reward:
+                        for agent in self.agent_names:
+                            rewards[agent] = 0 - rewards[agent]
+
+                    # Fix reward
                     if self.fix_reward:                        
                         for agent in self.agent_names:
                             if rewards[agent] == 0:
