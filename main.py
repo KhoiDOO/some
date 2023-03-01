@@ -80,6 +80,8 @@ if __name__ == '__main__':
                         help="Number of epoch for training")
     parser.add_argument("--irg_bs", type=int, default=32,
                         help="Batch size")
+    parser.add_argument("--irg_merge_loss", type=bool, default=True,
+                        help="Take the gradient in the total loss instead of backwarding each loss separately")
     parser.add_argument("--irg_lr", type=float, default=0.005,
                         help="learning rate")
     parser.add_argument("--irg_opt", type=str, default="Adam",

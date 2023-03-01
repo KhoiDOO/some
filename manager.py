@@ -81,6 +81,7 @@ class Training:
         self.irg_batch_size = args_dict["irg_bs"]
         self.irg_lr = args_dict["irg_lr"]
         self.irg_optimizer = args_dict["irg_opt"]
+        self.irg_merge_loss = args_dict["irg_merge_loss"]
 
         # Environment initialization
         self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
@@ -126,7 +127,9 @@ class Training:
                 epoches=self.irg_epochs,
                 env_dict=self.env_irg_def,
                 train_device=self.train_device,
-                buffer_device=self.buffer_device
+                buffer_device=self.buffer_device,
+                merge_loss = self.irg_merge_loss, 
+                save_path = self.model_agent_dir
             ) for name in self.agent_names}
 
     def train(self):
@@ -372,7 +375,7 @@ class Training:
         # irg training
         irg_agent.update()
         irg_agent.export_log(rdir=self.log_agent_dir, ep="all")
-        irg_agent.model_export(rdir=self.model_agent_dir)
+        # irg_agent.model_export(rdir=self.model_agent_dir)
         
     def pong_algo_only(self, max_reward = 100):
 
