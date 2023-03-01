@@ -124,7 +124,7 @@ class Training:
                 gamma=self.gamma,
                 optimizer=self.irg_optimizer,
                 agent_name=name,
-                epoches=self.irg_epochs,
+                epochs=self.irg_epochs,
                 env_dict=self.env_irg_def,
                 train_device=self.train_device,
                 buffer_device=self.buffer_device,
