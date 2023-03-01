@@ -252,7 +252,7 @@ class IRG:
 
         lowest_total_loss = 0
         
-        for epoch in trange(self.epoches):
+        for epoch in trange(self.epochs):
             for episode in trange(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
                     prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device, dtype = torch.float)
@@ -353,7 +353,7 @@ class IRG:
         if not os.path.exists(agent_sub_dir):
             os.mkdir(agent_sub_dir)
         
-        filename = f"irg_{self.agent_name}_{round(loss, self.round_scale)}"
+        filename = f"irg_{self.agent_name}_{round(loss.item(), self.round_scale)}"
         filepath = agent_sub_dir + f"/{filename}.pt"
         torch.save(self.brain.state_dict(), filepath)
 
