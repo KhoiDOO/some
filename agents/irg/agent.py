@@ -56,8 +56,9 @@ class IRG_Brain(nn.Module):
 
 class IRG:
     def __init__(self, batch_size: int = 20, lr: float = 0.005, gamma: float = 0.99,
-            optimizer: str = "Adam", agent_name: str = None, epoches:int = 3,
-            env_dict = env_def, train_device = "cuda", buffer_device = "cpu") -> None:
+            optimizer: str = "Adam", agent_name: str = None, epochs:int = 3,
+            env_dict = env_def, train_device = "cuda", buffer_device = "cpu",
+            merge_loss = True, save_path = None, round_scale = 2) -> None:
         """Constuctor of DUME
 
         Args:
@@ -74,10 +75,13 @@ class IRG:
         self.batch_size = batch_size
         self.lr = lr
         self.gamma = gamma
+        self.merge_loss = merge_loss
+        self.save_path = save_path
+        self.round_scale = round_scale
         self.train_device = train_device
         self.buffer_device = buffer_device
         self.agent_name = agent_name
-        self.epoches = epoches
+        self.epochs = epochs
         self.env_dict = env_dict
         self.brain = copy.deepcopy(IRG_Brain(device = self.train_device, 
             backbone_index=self.env_dict["num_agents"]).to(device = self.train_device))
@@ -246,6 +250,8 @@ class IRG:
 
         self.brain.train()
 
+        lowest_total_loss = 0
+        
         for epoch in trange(self.epoches):
             for episode in trange(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
@@ -275,23 +281,34 @@ class IRG:
 
                     al = self.action_loss(obs_skill_encoded, skill_embedding, curr_act)
 
+                    total_loss = tel + sel + rl + ol + al
+
                     self.optimizer.zero_grad()
-                    tel.backward(retain_graph=True)
-                    sel.backward(retain_graph=True)
-                    rl.backward(retain_graph=True)
-                    ol.backward(retain_graph=True)
-                    al.backward(retain_graph=True)
+                    if self.merge_loss:
+                        total_loss.backward()
+                    else:
+                        tel.backward(retain_graph=True)
+                        sel.backward(retain_graph=True)
+                        rl.backward(retain_graph=True)
+                        ol.backward(retain_graph=True)
+                        al.backward(retain_graph=True)
                     self.optimizer.step()
+            
+            if epoch == 0:
+                lowest_total_loss = total_loss
+            else:
+                if total_loss < lowest_total_loss:
+                    self.model_export(self.save_path, total_loss)
+                    lowest_total_loss = total_loss
+            
+            self.logging(
+                epoch=epoch, 
+                tel = tel.item(), 
+                sel=sel.item(), 
+                rl=rl.item(), 
+                ol=ol.item(), 
+                al=al.item())
 
-                    self.logging(
-                        epoch=epoch, 
-                        tel = tel.item(), 
-                        sel=sel.item(), 
-                        rl=rl.item(), 
-                        ol=ol.item(), 
-                        al=al.item())
-
-        # self.export_log("test.csv")
     def logging(self, epoch, tel, sel, rl, ol, al):
         self.log["epoch"].append(epoch)
         self.log["tel"].append(tel)
@@ -324,12 +341,12 @@ class IRG:
         elif extension == ".pickle":
             export_df.to_pickle(filepath)
     
-    def model_export(self, rdir: str):
+    def model_export(self, rdir: str, loss):
         """Export model to file
         Args:
             dir (str): folder for saving model weights
         """
-        filename = f"irg_{self.agent_name}"
+        filename = f"irg_{self.agent_name}_{round(loss, self.round_scale)}"
         filepath = rdir + f"/{filename}.pt"
         torch.save(self.brain.state_dict(), filepath)
 
