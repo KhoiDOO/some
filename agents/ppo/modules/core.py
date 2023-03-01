@@ -17,7 +17,7 @@ class ActorCritic(nn.Module):
     def forward(self):
         raise NotImplementedError
 
-class ACSiamese(ActorCritic):
+class ACSiamese(ActorCritic, nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
@@ -42,10 +42,13 @@ class ACSiamese(ActorCritic):
         return action_logprobs, obs_val, dist_entropy
 
 class ACMultiHead(ActorCritic):
+    def __init__(self) -> None:
+        super().__init__()
+
     def act(self, obs: torch.Tensor):
         x = self.network(obs/255)
         action_probs = self.actor(x)
-        dist = Categorical(action_probs)
+        dist = Categorical()(action_probs)
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -56,7 +59,7 @@ class ACMultiHead(ActorCritic):
     def evaluate(self, obs, action):
         x = self.network(obs/255)
         action_probs = self.actor(x)
-        dist = Categorical(action_probs)
+        dist = Categorical()(action_probs)
 
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()

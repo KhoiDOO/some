@@ -39,12 +39,16 @@ if __name__ == '__main__':
     parser.add_argument("--agent_choose", type=str, default="first_0",
                         choices=["first_0", "second_0", "third_0", "fourth_0", "paddle_0", "paddle_1"],
                         help="Agent chose for training, only available for irg or algo irg-only mode")
-    parser.add_argument("--script", type=str, default="sample",
+    parser.add_argument("--script", type=str,
                         help="Script includes weight paths to model, only needed in experiment mode, "
                              "detail in /script folder, create your_setting.json same as sample.json "
                              "for conducting custom experiment")
     parser.add_argument("--fix_reward", type=bool, default=False,
                         help="Make reward by step")
+    parser.add_argument("--max_reward", type=int, default=100,
+                        help="Max reward only use for pong-algo-only mode")
+    parser.add_argument("--inverse_reward", type=bool, default=False,
+                        help="change the sign of reward")
     parser.add_argument("--buffer_device", type=str, default="cpu",
                         help="Device used for memory replay")
     parser.add_argument("--device_index", type=int,
@@ -66,6 +70,8 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
+    parser.add_argument("--debug_mode", type=int, default=None,
+                        help="Debug mode")
 
     # irg
     parser.add_argument("--irg", type=bool, default=True,
@@ -74,6 +80,8 @@ if __name__ == '__main__':
                         help="Number of epoch for training")
     parser.add_argument("--irg_bs", type=int, default=32,
                         help="Batch size")
+    parser.add_argument("--irg_merge_loss", type=bool, default=True,
+                        help="Take the gradient in the total loss instead of backwarding each loss separately")
     parser.add_argument("--irg_lr", type=float, default=0.005,
                         help="learning rate")
     parser.add_argument("--irg_opt", type=str, default="Adam",

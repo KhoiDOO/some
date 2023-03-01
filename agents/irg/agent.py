@@ -1,11 +1,10 @@
 import os, sys
 sys.path.append(os.getcwd())
+import copy
 import torch
 from torch import nn 
-from torchvision.transforms import Resize
 from torch import optim
 import pandas as pd
-from utils.mapping import *
 from agents.irg.modules.irg_backbone import *
 from tqdm import trange
 
@@ -21,7 +20,7 @@ opt_mapping = {
     "Adam" : optim.Adam
 }
 
-class DUME_Brain(nn.Module):
+class IRG_Brain(nn.Module):
     def __init__(self, backbone_index:int = 4, device:str = "cuda") -> None:
         super().__init__()
         self.device = device
@@ -55,10 +54,11 @@ class DUME_Brain(nn.Module):
         return (pred_obs, pred_rew)
 
 
-class DUME:
+class IRG:
     def __init__(self, batch_size: int = 20, lr: float = 0.005, gamma: float = 0.99,
-            optimizer: str = "Adam", agent_name: str = None, epoches:int = 3,
-            env_dict = env_def, train_device = "cuda", buffer_device = "cpu") -> None:
+            optimizer: str = "Adam", agent_name: str = None, epochs:int = 3,
+            env_dict = env_def, train_device = "cuda", buffer_device = "cpu",
+            merge_loss = True, save_path = None, round_scale = 2) -> None:
         """Constuctor of DUME
 
         Args:
@@ -75,13 +75,16 @@ class DUME:
         self.batch_size = batch_size
         self.lr = lr
         self.gamma = gamma
+        self.merge_loss = merge_loss
+        self.save_path = save_path
+        self.round_scale = round_scale
         self.train_device = train_device
         self.buffer_device = buffer_device
         self.agent_name = agent_name
-        self.epoches = epoches
+        self.epochs = epochs
         self.env_dict = env_dict
-        self.brain = DUME_Brain(device = self.train_device, 
-            backbone_index=self.env_dict["num_agents"]).to(device = self.train_device)
+        self.brain = copy.deepcopy(IRG_Brain(device = self.train_device, 
+            backbone_index=self.env_dict["num_agents"]).to(device = self.train_device))
         self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
 
         # memory replay
@@ -247,7 +250,9 @@ class DUME:
 
         self.brain.train()
 
-        for epoch in trange(self.epoches):
+        lowest_total_loss = 0
+        
+        for epoch in trange(self.epochs):
             for episode in trange(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
                     prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device, dtype = torch.float)
@@ -276,23 +281,34 @@ class DUME:
 
                     al = self.action_loss(obs_skill_encoded, skill_embedding, curr_act)
 
+                    total_loss = tel + sel + rl + ol + al
+
                     self.optimizer.zero_grad()
-                    tel.backward(retain_graph=True)
-                    sel.backward(retain_graph=True)
-                    rl.backward(retain_graph=True)
-                    ol.backward(retain_graph=True)
-                    al.backward(retain_graph=True)
+                    if self.merge_loss:
+                        total_loss.backward()
+                    else:
+                        tel.backward(retain_graph=True)
+                        sel.backward(retain_graph=True)
+                        rl.backward(retain_graph=True)
+                        ol.backward(retain_graph=True)
+                        al.backward(retain_graph=True)
                     self.optimizer.step()
+            
+            if epoch == 0:
+                lowest_total_loss = total_loss
+            else:
+                if total_loss < lowest_total_loss:
+                    self.model_export(self.save_path, total_loss)
+                    lowest_total_loss = total_loss
+            
+            self.logging(
+                epoch=epoch, 
+                tel = tel.item(), 
+                sel=sel.item(), 
+                rl=rl.item(), 
+                ol=ol.item(), 
+                al=al.item())
 
-                    self.logging(
-                        epoch=epoch, 
-                        tel = tel.item(), 
-                        sel=sel.item(), 
-                        rl=rl.item(), 
-                        ol=ol.item(), 
-                        al=al.item())
-
-        # self.export_log("test.csv")
     def logging(self, epoch, tel, sel, rl, ol, al):
         self.log["epoch"].append(epoch)
         self.log["tel"].append(tel)
@@ -308,7 +324,7 @@ class DUME:
             ep (int): current episode
             extension (str, optional): save file extension. Defaults to ".parquet".
         """
-        sub_dir = rdir + "/dume"
+        sub_dir = rdir + "/irg"
         if not os.path.exists(sub_dir):
             os.mkdir(sub_dir)    
         agent_sub_dir = sub_dir + f"/{self.agent_name}"
@@ -325,13 +341,20 @@ class DUME:
         elif extension == ".pickle":
             export_df.to_pickle(filepath)
     
-    def model_export(self, rdir: str):
+    def model_export(self, rdir: str, loss):
         """Export model to file
         Args:
             dir (str): folder for saving model weights
         """
-        filename = f"dume_{self.agent_name}"
-        filepath = rdir + f"/{filename}.pt"
+        sub_dir = rdir + "/irg"
+        if not os.path.exists(sub_dir):
+            os.mkdir(sub_dir)    
+        agent_sub_dir = sub_dir + f"/{self.agent_name}"
+        if not os.path.exists(agent_sub_dir):
+            os.mkdir(agent_sub_dir)
+        
+        filename = f"irg_{self.agent_name}_{round(loss.item(), self.round_scale)}"
+        filepath = agent_sub_dir + f"/{filename}.pt"
         torch.save(self.brain.state_dict(), filepath)
 
     def task_latent_distance(self, z:torch.Tensor, z1:torch.Tensor = None, reg_weight: float=100):
@@ -442,7 +465,7 @@ if __name__ == "__main__":
         "stack_size" : 4,
         "single_frame_size" : (32, 64)
     }
-    dume = DUME(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
+    dume = IRG(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
     dume.unitest()
     dume.export_log(rdir=os.getcwd() + "/run", ep=1)
     dume.model_export(rdir=os.getcwd() + "/run")
