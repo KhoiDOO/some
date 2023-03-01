@@ -284,10 +284,16 @@ class PPO:
         Args:
             dir (str): folder for saving model weights
         """
+        sub_dir = rdir + "/ppo"
+        if not os.path.exists(sub_dir):
+            os.mkdir(sub_dir)    
+        agent_sub_dir = sub_dir + f"/{self.agent_name}"
+        if not os.path.exists(agent_sub_dir):
+            os.mkdir(agent_sub_dir)
+        
         filename = f"ppo_{self.agent_name}"
-        filpath = rdir + f"/{filename}.pt"
+        filpath = agent_sub_dir + f"/{filename}.pt"
         torch.save(self.policy.state_dict(), filpath)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
