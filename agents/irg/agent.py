@@ -346,8 +346,15 @@ class IRG:
         Args:
             dir (str): folder for saving model weights
         """
+        sub_dir = rdir + "/irg"
+        if not os.path.exists(sub_dir):
+            os.mkdir(sub_dir)    
+        agent_sub_dir = sub_dir + f"/{self.agent_name}"
+        if not os.path.exists(agent_sub_dir):
+            os.mkdir(agent_sub_dir)
+        
         filename = f"irg_{self.agent_name}_{round(loss, self.round_scale)}"
-        filepath = rdir + f"/{filename}.pt"
+        filepath = agent_sub_dir + f"/{filename}.pt"
         torch.save(self.brain.state_dict(), filepath)
 
     def task_latent_distance(self, z:torch.Tensor, z1:torch.Tensor = None, reg_weight: float=100):
