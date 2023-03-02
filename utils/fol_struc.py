@@ -10,18 +10,15 @@ def run_folder_verify(time):
         os.mkdir(run_dir)
     
     run_train_dir = run_dir + "/train"
-    # run_valid_dir = run_dir + "/val"
 
     for x in [
         run_train_dir, 
-        # run_valid_dir
         ]:
         if not os.path.exists(x):
             os.mkdir(x)
     
     time_dirs = [
         run_train_dir + f"/{time}", 
-        # run_valid_dir + f"/{time}"
         ]
 
     for x in time_dirs:
