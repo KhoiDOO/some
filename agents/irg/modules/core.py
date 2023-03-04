@@ -21,8 +21,8 @@ class BaseLayer(nn.Module):
                 "decoder" : SimpleDecoder
             },
             2 : {
-                "encoder" : SimpleEncoder2Player,
-                "decoder" : SimpleDecoder2Player
+                "encoder" : SimpleEncoder2PlayerSmall,
+                "decoder" : SimpleDecoder2PlayerSmall
             }
         }
     
