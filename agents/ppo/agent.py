@@ -171,8 +171,8 @@ class PPO:
             rewards.insert(0, discounted_reward)
             
         # Normalizing the rewards
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
+        # rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
         rewards = [torch.Tensor(reward) for reward in rewards]
 
         # Batch Split
