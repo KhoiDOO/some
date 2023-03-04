@@ -19,8 +19,9 @@ opt_mapping = {
 
 backbone_mapping = {
     "siamese" : ActorCriticSiamese,
-    "multi-head" : ActorCriticMultiHead,
     "siamese-small" : ActorCriticSiameseSmall,
+    "siamese-nano" : ActorCriticSiameseNano,
+    "multi-head" : ActorCriticMultiHead,
     "multi-head-small" : ActorCriticMultiHeadSmall
 }
 
@@ -192,7 +193,7 @@ class PPO:
 
                 # Evaluation
                 action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
-                dist = Categorical(action_probs)
+                dist = Categorical(logits=action_probs)
 
                 logprobs = dist.log_prob(act_batch[idx].to(self.device))
                 dist_entropy = dist.entropy()
@@ -299,9 +300,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Environment
     parser.add_argument("--backbone", type=str, choices=[
-        "siamese", "siamese-small", "multi-head", "multi-head-small"
+        "siamese", "siamese-small", "siamese-nano", "multi-head", "multi-head-small"
         ],
-        help="Backbone", default="siamese")
+        help="Backbone", default="siamese-nano")
     parser.add_argument("--device", type=str, choices=[
         "cuda", "cpu"
         ],
