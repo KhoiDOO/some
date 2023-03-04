@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
                         help="Deep policy model architecture")
     parser.add_argument("--backbone", type=str, default="siamese", choices=[
-        "siamese", "siamese-small", "multi-head", "multi-head-small"],
+        "siamese", "siamese-small", "siamese-nano", "multi-head", "multi-head-small"],
                         help="PPO Backbone")
     parser.add_argument("--epochs", type=int, default=1,
                         help="Number of epoch for training")
