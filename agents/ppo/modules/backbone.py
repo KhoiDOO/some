@@ -22,8 +22,7 @@ class ActorCriticSiamese(ACSiamese):
             nn.Flatten(),
             nn.Linear(128 * 8 * 8, 512),
             nn.ReLU(),
-            nn.Linear(512, num_actions),
-            nn.Softmax(dim=-1)
+            layer_init(nn.Linear(512, num_actions)),
         )
         self.critic = nn.Sequential(
             nn.Conv2d(stack_size, 32, 3, padding=1),
@@ -38,7 +37,7 @@ class ActorCriticSiamese(ACSiamese):
             nn.Flatten(),
             nn.Linear(128 * 8 * 8, 512),
             nn.ReLU(),
-            nn.Linear(512, 1)
+            layer_init(nn.Linear(512, 1))
         )
 
 class ActorCriticSiameseSmall(ACSiamese):
@@ -58,8 +57,7 @@ class ActorCriticSiameseSmall(ACSiamese):
             nn.Flatten(),
             nn.Linear(64 * 4 * 4, 512),
             nn.ReLU(),
-            nn.Linear(512, num_actions),
-            nn.Softmax(dim=-1)
+            layer_init(nn.Linear(512, num_actions)),
         )
         self.critic = nn.Sequential(
             nn.Conv2d(stack_size, 32, 8, stride=4),
@@ -74,7 +72,38 @@ class ActorCriticSiameseSmall(ACSiamese):
             nn.Flatten(),
             nn.Linear(64 * 4 * 4, 512),
             nn.ReLU(),
-            nn.Linear(512, 1)
+            layer_init(nn.Linear(512, 1))
+        )
+
+class ActorCriticSiameseNano(ACSiamese):
+    def __init__(self, num_actions: int, stack_size: int) -> None:
+        super().__init__()
+        self.actor = nn.Sequential(
+            # 4 * 32 * 64
+            nn.Conv2d(stack_size, 16, 8, 4),
+            nn.ReLU(),
+            # 16 * 7 * 15
+            nn.Conv2d(16, 32, 5, 2),
+            nn.ReLU(),
+            # 32 * 2 * 6
+            nn.Flatten(),
+            nn.Linear(32 * 2 * 6, 256),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, num_actions))
+        )
+
+        self.critic = nn.Sequential(
+            # 4 * 32 * 64
+            nn.Conv2d(stack_size, 16, 8, 4),
+            nn.ReLU(),
+            # 16 * 7 * 15
+            nn.Conv2d(16, 32, 5, 2),
+            nn.ReLU(),
+            # 32 * 2 * 6
+            nn.Flatten(),
+            nn.Linear(32 * 2 * 6, 256),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 1))
         )
 
 class ActorCriticMultiHead(ACMultiHead):
@@ -97,10 +126,9 @@ class ActorCriticMultiHead(ACMultiHead):
         )
 
         self.actor = nn.Sequential(
-            nn.Linear(512, num_actions),
-            nn.Softmax(dim=-1)
+            layer_init(nn.Linear(512, num_actions))
         )
-        self.critic = nn.Linear(512, 1)
+        self.critic = layer_init(nn.Linear(512, 1))
             
 
 class ActorCriticMultiHeadSmall(ACMultiHead):
@@ -122,7 +150,6 @@ class ActorCriticMultiHeadSmall(ACMultiHead):
             nn.ReLU(),
         )
         self.actor = nn.Sequential(
-            nn.Linear(512, num_actions),
-            nn.Softmax(dim=-1)
+            layer_init(nn.Linear(512, num_actions))
         )
-        self.critic = nn.Linear(512, 1)
+        self.critic = layer_init(nn.Linear(512, 1))

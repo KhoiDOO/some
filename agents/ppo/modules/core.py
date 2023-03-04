@@ -5,6 +5,12 @@ import torch
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
+def layer_init(layer, w_scale=1.0):
+    nn.init.orthogonal_(layer.weight.data)
+    layer.weight.data.mul_(w_scale)
+    nn.init.constant_(layer.bias.data, 0)
+    return layer
+
 class ActorCritic(nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -23,7 +29,7 @@ class ACSiamese(ActorCritic, nn.Module):
 
     def act(self, obs: torch.Tensor):
         action_probs = self.actor(obs/255)
-        dist = Categorical(action_probs)
+        dist = Categorical(logits=action_probs)
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -33,7 +39,7 @@ class ACSiamese(ActorCritic, nn.Module):
     
     def evaluate(self, obs, action):
         action_probs = self.actor(obs/255)
-        dist = Categorical(action_probs)
+        dist = Categorical(logits=action_probs)
 
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
@@ -48,7 +54,7 @@ class ACMultiHead(ActorCritic):
     def act(self, obs: torch.Tensor):
         x = self.network(obs/255)
         action_probs = self.actor(x)
-        dist = Categorical()(action_probs)
+        dist = Categorical(logits=action_probs)
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -59,7 +65,7 @@ class ACMultiHead(ActorCritic):
     def evaluate(self, obs, action):
         x = self.network(obs/255)
         action_probs = self.actor(x)
-        dist = Categorical()(action_probs)
+        dist = Categorical(logits=action_probs)
 
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
