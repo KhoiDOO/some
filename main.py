@@ -109,13 +109,13 @@ if __name__ == '__main__':
     print(f"Cuda Index: {args.device_index}")
 
     print(f"Agent: {args.agent}")
+    print(f"Backbone in use: {args.backbone}")
     print(f"Epochs: {args.epochs}")
     print(f"Batch size: {args.bs}")
     print(f"Actor Learning rate: {args.actor_lr}")
-    print(f"Critic Learning rate: {args.critic_lr}")
-    print(f"Discount factor: {args.gamma}")
-    print(f"Total Episodes: {args.ep}")
+    print(f"Critic Learning rate: {args.critic_lr}")    
     print(f"Optimizer: {args.opt}")
+    print(f"Debug mode: {args.debug_mode}")
 
     print(f"irg: {args.irg}")
     print(f"irg Epochs: {args.irg_epochs}")
@@ -130,9 +130,10 @@ if __name__ == '__main__':
         print(f"Cuda is not available on this machine")
         print("="*10, "CUDA INFO", "="*10)
         print()
-    elif args.device_index > torch.cuda.device_count():
-        raise Exception(f"The device chose is higher than the number of available cuda device.\
-            There are {torch.cuda.device_count()} but {args.device_index} chose instead")
+    elif args.device_index:
+        if args.device_index > torch.cuda.device_count():
+            raise Exception(f"The device chose is higher than the number of available cuda device.\
+                There are {torch.cuda.device_count()} but {args.device_index} chose instead")
     else:
         print()
         print("="*10, "CUDA INFO", "="*10)
