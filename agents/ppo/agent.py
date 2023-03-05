@@ -170,10 +170,7 @@ class PPO:
             discounted_reward = reward + (self.gamma * discounted_reward)
             rewards.insert(0, discounted_reward)
             
-        # Normalizing the rewards
-        # rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
-        rewards = [torch.Tensor(reward) for reward in rewards]
+        rewards = [torch.tensor(np.float32(reward)) for reward in rewards]
 
         # Batch Split
         obs_batch = batch_split(self.buffer.observations, self.batch_size)
