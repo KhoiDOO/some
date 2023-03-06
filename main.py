@@ -124,5 +124,5 @@ if __name__ == '__main__':
             print("="*10, "CUDA INFO", "="*10)
             print()
 
-    # train = Training(args=args)
-    # train.train()
+    train = Training(args=args)
+    train.train()
