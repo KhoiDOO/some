@@ -134,15 +134,15 @@ if __name__ == '__main__':
         if args.device_index > torch.cuda.device_count():
             raise Exception(f"The device chose is higher than the number of available cuda device.\
                 There are {torch.cuda.device_count()} but {args.device_index} chose instead")
-    else:
-        print()
-        print("="*10, "CUDA INFO", "="*10)
-        print(f"Total number of cuda: {torch.cuda.device_count()}")
-        print(f"CUDA current index: {args.device_index}")
-        print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
-        print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
-        print("="*10, "CUDA INFO", "="*10)
-        print()
+        else:
+            print()
+            print("="*10, "CUDA INFO", "="*10)
+            print(f"Total number of cuda: {torch.cuda.device_count()}")
+            print(f"CUDA current index: {args.device_index}")
+            print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+            print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+            print("="*10, "CUDA INFO", "="*10)
+            print()
 
     train = Training(args=args)
     train.train()
