@@ -1,80 +1,155 @@
 import os, sys
 sys.path.append(os.getcwd())
-from agents.ppo.modules.buffer import RolloutBuffer
+from agents.ppo.modules.core import *
 
 import numpy as np
-import torch
 import torch.nn as nn
-from torch.distributions.categorical import Categorical
 
-class ActorCritic(nn.Module):
+class ActorCriticSiamese(ACSiamese):
     def __init__(self, num_actions: int, stack_size: int):
         super().__init__()
 
-        self.actor_network = nn.Sequential(
-            self._layer_init(nn.Conv2d(stack_size, 32, 3, padding=1)),
+        self.actor = nn.Sequential(
+            nn.Conv2d(stack_size, 32, 3, padding=1),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            self._layer_init(nn.Conv2d(32, 64, 3, padding=1)),
+            nn.Conv2d(32, 64, 3, padding=1),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            self._layer_init(nn.Conv2d(64, 128, 3, padding=1)),
+            nn.Conv2d(64, 128, 3, padding=1),
             nn.MaxPool2d(2),
             nn.ReLU(),
             nn.Flatten(),
-            self._layer_init(nn.Linear(128 * 8 * 8, 512)),
+            nn.Linear(128 * 8 * 8, 512),
             nn.ReLU(),
+            layer_init(nn.Linear(512, num_actions)),
+        )
+        self.critic = nn.Sequential(
+            nn.Conv2d(stack_size, 32, 3, padding=1),
+            nn.MaxPool2d(2),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.MaxPool2d(2),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.MaxPool2d(2),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(128 * 8 * 8, 512),
+            nn.ReLU(),
+            layer_init(nn.Linear(512, 1))
         )
 
-        self.critic_network = nn.Sequential(
-            self._layer_init(nn.Conv2d(stack_size, 32, 3, padding=1)),
+class ActorCriticSiameseSmall(ACSiamese):
+    def __init__(self, num_actions: int, stack_size: int) -> None:
+        super().__init__()
+
+        self.actor = nn.Sequential(
+            nn.Conv2d(stack_size, 32, 8, stride=4),
+            # 1 * 32 * 15 * 15
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride=2),
+            # 1 * 64 * 6 * 6
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, stride=1),
+            # 1 * 64 * 4 * 4
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(64 * 4 * 4, 512),
+            nn.ReLU(),
+            layer_init(nn.Linear(512, num_actions)),
+        )
+        self.critic = nn.Sequential(
+            nn.Conv2d(stack_size, 32, 8, stride=4),
+            # 1 * 32 * 15 * 15
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride=2),
+            # 1 * 64 * 6 * 6
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, stride=1),
+            # 1 * 64 * 4 * 4
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(64 * 4 * 4, 512),
+            nn.ReLU(),
+            layer_init(nn.Linear(512, 1))
+        )
+
+class ActorCriticSiameseNano(ACSiamese):
+    def __init__(self, num_actions: int, stack_size: int) -> None:
+        super().__init__()
+        self.actor = nn.Sequential(
+            # 4 * 32 * 64
+            nn.Conv2d(stack_size, 16, 8, 4),
+            nn.ReLU(),
+            # 16 * 7 * 15
+            nn.Conv2d(16, 32, 5, 2),
+            nn.ReLU(),
+            # 32 * 2 * 6
+            nn.Flatten(),
+            nn.Linear(32 * 2 * 6, 256),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, num_actions))
+        )
+
+        self.critic = nn.Sequential(
+            # 4 * 32 * 64
+            nn.Conv2d(stack_size, 16, 8, 4),
+            nn.ReLU(),
+            # 16 * 7 * 15
+            nn.Conv2d(16, 32, 5, 2),
+            nn.ReLU(),
+            # 32 * 2 * 6
+            nn.Flatten(),
+            nn.Linear(32 * 2 * 6, 256),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 1))
+        )
+
+class ActorCriticMultiHead(ACMultiHead):
+    def __init__(self, num_actions: int, stack_size: int):
+        super().__init__()
+
+        self.network = nn.Sequential(
+            nn.Conv2d(stack_size, 32, 3, padding=1),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            self._layer_init(nn.Conv2d(32, 64, 3, padding=1)),
+            nn.Conv2d(32, 64, 3, padding=1),
             nn.MaxPool2d(2),
             nn.ReLU(),
-            self._layer_init(nn.Conv2d(64, 128, 3, padding=1)),
+            nn.Conv2d(64, 128, 3, padding=1),
             nn.MaxPool2d(2),
             nn.ReLU(),
             nn.Flatten(),
-            self._layer_init(nn.Linear(128 * 8 * 8, 512)),
+            nn.Linear(128 * 8 * 8, 512),
             nn.ReLU(),
         )
 
         self.actor = nn.Sequential(
-            self.actor_network,
-            self._layer_init(nn.Linear(512, num_actions), std=0.01),
-            nn.Softmax(dim=-1)
+            layer_init(nn.Linear(512, num_actions))
         )
-        self.critic = nn.Sequential(
-            self.critic_network,
-            self._layer_init(nn.Linear(512, 1))
+        self.critic = layer_init(nn.Linear(512, 1))
+            
+
+class ActorCriticMultiHeadSmall(ACMultiHead):
+    def __init__(self, num_actions: int, stack_size: int) -> None:
+        super().__init__()
+
+        self.network = nn.Sequential(
+            nn.Conv2d(stack_size, 32, 8, stride=4),
+            # 1 * 32 * 15 * 15
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride=2),
+            # 1 * 64 * 6 * 6
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, stride=1),
+            # 1 * 64 * 4 * 4
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(64 * 4 * 4, 512),
+            nn.ReLU(),
         )
-
-    def _layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
-        torch.nn.init.orthogonal_(layer.weight, std)
-        torch.nn.init.constant_(layer.bias, bias_const)
-        return layer
-    
-    def forward(self):
-        raise NotImplementedError
-
-    def act(self, obs: torch.Tensor):
-        action_probs = self.actor(obs/255)
-        dist = Categorical(action_probs)
-
-        action = dist.sample()
-        action_logprob = dist.log_prob(action)
-        obs_val = self.critic(obs/255)
-
-        return action.detach(), action_logprob.detach(), obs_val.detach()
-    
-    def evaluate(self, obs, action):
-        action_probs = self.actor(obs/255)
-        dist = Categorical(action_probs)
-
-        action_logprobs = dist.log_prob(action)
-        dist_entropy = dist.entropy()
-        obs_val = self.critic(obs/255)
-        
-        return action_logprobs, obs_val, dist_entropy
+        self.actor = nn.Sequential(
+            layer_init(nn.Linear(512, num_actions))
+        )
+        self.critic = layer_init(nn.Linear(512, 1))

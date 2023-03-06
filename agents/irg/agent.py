@@ -21,14 +21,37 @@ opt_mapping = {
 }
 
 class IRG_Brain(nn.Module):
-    def __init__(self, backbone_index:int = 4, device:str = "cuda") -> None:
+    def __init__(self, backbone_index:int = 4, backbone_scale = "small", device:str = "cuda") -> None:
         super().__init__()
         self.device = device
-        self.skill_encoder = SkillEncoder(obs_inchannel=4, obs_outchannel=64, act_inchannel=1, backbone_index=backbone_index, device = self.device).to(self.device)
-        self.skill_decoder = SkillDecoder(obs_encoded_size=64, skill_embedding_size=64, device = self.device).to(self.device)
-        self.task_encoder = TaskEncoder(obs_inchannel=4, obs_outchannel=64, act_inchannel=2,  backbone_index=backbone_index, device = self.device).to(self.device)
-        self.obs_decoder = ObservationDecoder(obs_encoded_size=64, task_embedding_size=64,  backbone_index=backbone_index, device = self.device).to(self.device)
-        self.rew_decoder = RewardDecoder(obs_encoded_size=64, task_embedding_size=64,device = self.device).to(self.device)
+
+        self.skill_encoder = SkillEncoder(obs_inchannel=4, 
+                                          obs_outchannel=64, 
+                                          act_inchannel=1, 
+                                          backbone_index=backbone_index, 
+                                          backbone_scale = backbone_scale,
+                                          device = self.device).to(self.device)
+        
+        self.skill_decoder = SkillDecoder(obs_encoded_size=64, 
+                                          skill_embedding_size=64, 
+                                          device = self.device).to(self.device)
+        
+        self.task_encoder = TaskEncoder(obs_inchannel=4, 
+                                        obs_outchannel=64, 
+                                        act_inchannel=2,  
+                                        backbone_index=backbone_index, 
+                                        backbone_scale = backbone_scale,
+                                        device = self.device).to(self.device)
+        
+        self.obs_decoder = ObservationDecoder(obs_encoded_size=64, 
+                                              task_embedding_size=64,  
+                                              backbone_index=backbone_index, 
+                                              backbone_scale = backbone_scale,
+                                              device = self.device).to(self.device)
+        
+        self.rew_decoder = RewardDecoder(obs_encoded_size=64, 
+                                         task_embedding_size=64,
+                                         device = self.device).to(self.device)
     
     def forward(self, curr_obs, 
                     curr_act, 
@@ -58,7 +81,8 @@ class IRG:
     def __init__(self, batch_size: int = 20, lr: float = 0.005, gamma: float = 0.99,
             optimizer: str = "Adam", agent_name: str = None, epochs:int = 3,
             env_dict = env_def, train_device = "cuda", buffer_device = "cpu",
-            merge_loss = True, save_path = None, round_scale = 2) -> None:
+            merge_loss = True, save_path = None, round_scale = 2,
+            backbone_scale = "small") -> None:
         """Constuctor of DUME
 
         Args:
@@ -83,8 +107,11 @@ class IRG:
         self.agent_name = agent_name
         self.epochs = epochs
         self.env_dict = env_dict
-        self.brain = copy.deepcopy(IRG_Brain(device = self.train_device, 
-            backbone_index=self.env_dict["num_agents"]).to(device = self.train_device))
+        self.brain = copy.deepcopy(IRG_Brain(
+            device = self.train_device, 
+            backbone_index=self.env_dict["num_agents"],
+            backbone_scale = backbone_scale
+            ).to(device = self.train_device))
         self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
 
         # memory replay
@@ -465,7 +492,6 @@ if __name__ == "__main__":
         "stack_size" : 4,
         "single_frame_size" : (32, 64)
     }
-    dume = IRG(epoches = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu")
+    dume = IRG(epochs = 1, batch_size=20, env_dict = env_test, train_device="cpu", buffer_device="cpu", backbone_scale = "small")
     dume.unitest()
-    dume.export_log(rdir=os.getcwd() + "/run", ep=1)
-    dume.model_export(rdir=os.getcwd() + "/run")
+    dume.export_log(rdir=os.getcwd() + "/run", ep=1)    
