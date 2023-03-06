@@ -110,6 +110,41 @@ class SimpleDecoder2Player(VAEBaseLayer):
             #8 * 28 * 28
             _layer_init(nn.ConvTranspose2d(8, 4, 5)),
             #4 * 32 * 32
+            nn.ReLU()
+        )
+    
+    def forward(self, x):
+        return self.network(x)
+
+class SimpleEncoder2PlayerSmall(VAEBaseLayer):
+    def __init__(self, inchannel, outchannel: int) -> None:
+        super().__init__()
+        self.network = nn.Sequential(
+            # 4 * 32 * 64
+            _layer_init(nn.Conv2d(inchannel, 16, 8, 4)),
+            nn.ReLU(),
+            # 16 * 7 * 15
+            _layer_init(nn.Conv2d(16, 32, 5, 2)),
+            nn.ReLU(),
+            # 32 * 2 * 6
+            nn.Flatten(),
+            nn.Linear(32 * 2 * 6, outchannel),
+            nn.ReLU()
+        )
+    
+    def forward(self, x):
+        return self.network(x)
+
+class SimpleDecoder2PlayerSmall(VAEBaseLayer):
+    def __init__(self, inchannel:int) -> None:
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(inchannel, 384),
+            nn.Unflatten(1, (32, 2, 6)),
+            _layer_init(nn.ConvTranspose2d(32, 16, 5, 2)),
+            nn.ReLU(),
+            _layer_init(nn.ConvTranspose2d(16, 4, 8, 4)),
+            nn.ReLU()
         )
     
     def forward(self, x):

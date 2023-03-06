@@ -256,6 +256,12 @@ class Training:
 
                     next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
 
+                    # Update termination
+                    terms = {
+                        agent : True if rewards[agent] == 1 or rewards[agent] == -1 else False for agent in self.agent_names
+                    }
+
+                    # Update win
                     for agent_name in self.agent_names:
                         if rewards[agent_name] == -1:
                             reward_win[agent_name] += 1
@@ -289,7 +295,7 @@ class Training:
 
                     # Update buffer for algo actor critic
                     for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
                 
                 # Update no. win in episode
                 win_log["ep"].append(ep)
@@ -375,7 +381,6 @@ class Training:
         # irg training
         irg_agent.update()
         irg_agent.export_log(rdir=self.log_agent_dir, ep="all")
-        # irg_agent.model_export(rdir=self.model_agent_dir)
         
     def pong_algo_only(self, max_reward = 100):
 
@@ -414,7 +419,13 @@ class Training:
                     }
 
                     next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
-                    
+
+                    # Update termination
+                    terms = {
+                        agent : True if rewards[agent] == 1 or rewards[agent] == -1 else False for agent in self.agent_names
+                    } 
+
+                    # Update win                    
                     for agent_name in self.agent_names:
                         if rewards[agent_name] == -1:
                             reward_win[agent_name] += 1
@@ -440,7 +451,7 @@ class Training:
                         reward_log[agent].append(rewards[agent])
                     
                     for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], True if agent in terms else False)
+                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
                 
                 # Update no. win in episode
                 win_log["ep"].append(ep)

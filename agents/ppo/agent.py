@@ -19,8 +19,9 @@ opt_mapping = {
 
 backbone_mapping = {
     "siamese" : ActorCriticSiamese,
-    "multi-head" : ActorCriticMultiHead,
     "siamese-small" : ActorCriticSiameseSmall,
+    "siamese-nano" : ActorCriticSiameseNano,
+    "multi-head" : ActorCriticMultiHead,
     "multi-head-small" : ActorCriticMultiHeadSmall
 }
 
@@ -169,10 +170,7 @@ class PPO:
             discounted_reward = reward + (self.gamma * discounted_reward)
             rewards.insert(0, discounted_reward)
             
-        # Normalizing the rewards
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
-        rewards = [torch.Tensor(reward) for reward in rewards]
+        rewards = [torch.tensor(np.float32(reward)) for reward in rewards]
 
         # Batch Split
         obs_batch = batch_split(self.buffer.observations, self.batch_size)
@@ -192,7 +190,7 @@ class PPO:
 
                 # Evaluation
                 action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
-                dist = Categorical(action_probs)
+                dist = Categorical(logits=action_probs)
 
                 logprobs = dist.log_prob(act_batch[idx].to(self.device))
                 dist_entropy = dist.entropy()
@@ -299,9 +297,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Environment
     parser.add_argument("--backbone", type=str, choices=[
-        "siamese", "siamese-small", "multi-head", "multi-head-small"
+        "siamese", "siamese-small", "siamese-nano", "multi-head", "multi-head-small"
         ],
-        help="Backbone", default="siamese")
+        help="Backbone", default="siamese-nano")
     parser.add_argument("--device", type=str, choices=[
         "cuda", "cpu"
         ],
