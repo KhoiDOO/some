@@ -2,6 +2,7 @@ import os, sys
 import argparse
 from datetime import datetime
 import torch
+from beautifultable import BeautifulTable
 
 from manager import Training
 
@@ -88,47 +89,20 @@ if __name__ == '__main__':
                         help="Optimizer for irg")
     args = parser.parse_args()
 
-    print("="*10, "ENVIRONMENT INFO", "="*10)
-    print("Summary of training process:")
-    print(f"Environment: {args.env}")
-    print(f"stack_size: {args.stack_size}")
-    print(f"frame_size: {args.frame_size}")
-    print(f"parallel: {args.parallel}")
-    print(f"color_reduc: {args.color_reduction}")
-    print(f"render_mode: {args.render_mode}")
-    print(f"max_cycles: {args.max_cycles}")
-    print(f"Total number of episodes {args.ep}")
-    print(f"Discount Factor: {args.gamma}")
-    print(f"Partial Observation Area Scale: {args.view}")
-    print()
-    
-    print("="*10, "EXPERIMENT INFO", "="*10)
-    print(f"Type of training experiment: {args.train_type}")
-    print(f"Agent chose in irg-only mode: {args.agent_choose}")
-    print(f"Script used in experiment mode: {args.script}")
-    print(f"Fix reward function status: {args.fix_reward}")
-    print(f"Buffer device: {args.buffer_device}")
-    print(f"Cuda Index: {args.device_index}")
-    print()
-
-    print("="*10, "MAIN ALGORITHM INFO", "="*10)
-    print(f"Agent: {args.agent}")
-    print(f"Backbone in use: {args.backbone}")
-    print(f"Epochs: {args.epochs}")
-    print(f"Batch size: {args.bs}")
-    print(f"Actor Learning rate: {args.actor_lr}")
-    print(f"Critic Learning rate: {args.critic_lr}")    
-    print(f"Optimizer: {args.opt}")
-    print(f"Debug mode: {args.debug_mode}")
-    print()
-
-    print("="*10, "IRG INFO", "="*10)
-    print(f"irg: {args.irg}")
-    print(f"irg Epochs: {args.irg_epochs}")
-    print(f"irg Batch size: {args.irg_bs}")
-    print(f"irg Learning rate: {args.irg_lr}")
-    print(f"irg Optimizer: {args.irg_opt}")
-    print()
+    table = BeautifulTable(maxwidth=140)
+    table.rows.append([args.env, "train_type", args.train_type, "agent", args.agent, "IRG", args.irg])
+    table.rows.append([args.stack_size, "agent_choose", args.agent_choose, "backbone", args.backbone, "irg_epochs", args.irg_epochs])
+    table.rows.append([args.frame_size, "script", args.script, "epochs", args.epochs, "irg_bs", args.irg_bs])
+    table.rows.append([args.parallel, "fix_reward", args.fix_reward, "bs", args.bs, "irg_lr", args.irg_lr])
+    table.rows.append([args.color_reduction, "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
+    table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", args.irg_merge_loss])
+    table.rows.append([args.max_cycles, "", "", "opt", args.opt, "", ""])
+    table.rows.append([args.ep, "", "", "", "", "", ""])
+    table.rows.append([args.gamma, "", "", "", "", "", ""])
+    table.rows.append([args.view, "", "", "", "", "", ""])
+    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view"]
+    table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
+    print(table)
 
     if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
         print()
@@ -150,5 +124,5 @@ if __name__ == '__main__':
             print("="*10, "CUDA INFO", "="*10)
             print()
 
-    train = Training(args=args)
-    train.train()
+    # train = Training(args=args)
+    # train.train()
