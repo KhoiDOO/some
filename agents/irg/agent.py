@@ -118,7 +118,8 @@ class IRG:
             device = self.train_device, 
             backbone_index=self.env_dict["num_agents"],
             backbone_scale = backbone_scale
-            ).to(device = self.train_device)).load_state_dict(self.brain.state_dict())
+            ).to(device = self.train_device))
+        self.tracking_brain.load_state_dict(self.brain.state_dict())
 
         # memory replay
         self.rb_obs = list()
