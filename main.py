@@ -71,7 +71,7 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
-    parser.add_argument("--debug_mode", type=int, default=None,
+    parser.add_argument("--debug_mode", type=int, default=None, choices=[0, 1, 2],
                         help="Debug mode")
 
     # irg
