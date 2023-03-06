@@ -86,11 +86,12 @@ class PPO:
 
         self.device = device
 
-        # Track
-        self.log = {
+    def log_init(self):
+        return {
             "epoch" : [],
             "actor_loss" : [],
-            "critic_loss" : []
+            "critic_loss" : [],
+            "kl" : []
         }
     
     def select_action(self, obs: torch.Tensor):
@@ -179,6 +180,9 @@ class PPO:
         obs_values_batch = batch_split(self.buffer.obs_values, self.batch_size)
         reward_batch = batch_split(rewards, self.batch_size)
 
+        # Tracking
+        self.log = self.log_init()
+
         # Optimize policy for K epochs
         for e in trange(self.K_epochs):
 
@@ -211,11 +215,16 @@ class PPO:
 
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
-                # Logging
-                self.logging(epoch=e, actor_loss = actor_loss.item(), critic_loss = critic_loss.item())
-
                 # Approx KL
                 approx_kl = (logprobs_batch[idx].to(self.device) - logprobs).mean()
+
+                # Logging
+                self.logging(
+                    epoch=e, 
+                    actor_loss = actor_loss.item(), 
+                    critic_loss = critic_loss.item(), 
+                    kl = approx_kl.item()
+                )
                         
                 # take gradient step
                 if approx_kl <= 1.5 * self.target_kl:
@@ -242,14 +251,27 @@ class PPO:
                 print("Actor is updated")
             if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
                 print("Critic is updated")
+        elif self.debug_mode == 2:
+            print(f"Total step: {len(self.buffer.observations)}")
+            print("Actor Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"])
+            ))
+            print("Critic Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
+            ))
+            print("KL Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["kl"]), max(self.log["kl"]), sum(self.log["kl"])/len(self.log["kl"])
+            ))
+
 
         # clear buffer
         self.buffer.clear()
 
-    def logging(self, epoch, actor_loss, critic_loss):
+    def logging(self, epoch = None, actor_loss = None, critic_loss = None, kl = None):
         self.log["epoch"].append(epoch)
         self.log["actor_loss"].append(actor_loss)
         self.log["critic_loss"].append(critic_loss)
+        self.log["kl"].append(kl)
 
     def export_log(self, rdir: str, ep: int, extension: str = ".parquet"):
         """Export log to file
