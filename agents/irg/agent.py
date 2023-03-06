@@ -114,6 +114,12 @@ class IRG:
             ).to(device = self.train_device))
         self.optimizer = opt_mapping[optimizer](self.brain.parameters(), lr=self.lr)
 
+        self.tracking_brain = copy.deepcopy(IRG_Brain(
+            device = self.train_device, 
+            backbone_index=self.env_dict["num_agents"],
+            backbone_scale = backbone_scale
+            ).to(device = self.train_device)).load_state_dict(self.brain.state_dict())
+
         # memory replay
         self.rb_obs = list()
         self.rb_act = list()
@@ -325,8 +331,8 @@ class IRG:
                 lowest_total_loss = total_loss
             else:
                 if total_loss < lowest_total_loss:
-                    self.model_export(self.save_path, total_loss)
                     lowest_total_loss = total_loss
+                    self.tracking_brain.load_state_dict(self.brain.state_dict())
             
             self.logging(
                 epoch=epoch, 
@@ -335,6 +341,8 @@ class IRG:
                 rl=rl.item(), 
                 ol=ol.item(), 
                 al=al.item())
+        
+        self.model_export(self.save_path, lowest_total_loss, total_loss)
 
     def logging(self, epoch, tel, sel, rl, ol, al):
         self.log["epoch"].append(epoch)
@@ -368,7 +376,7 @@ class IRG:
         elif extension == ".pickle":
             export_df.to_pickle(filepath)
     
-    def model_export(self, rdir: str, loss):
+    def model_export(self, rdir: str, lowest_loss, total_loss):
         """Export model to file
         Args:
             dir (str): folder for saving model weights
@@ -380,9 +388,13 @@ class IRG:
         if not os.path.exists(agent_sub_dir):
             os.mkdir(agent_sub_dir)
         
-        filename = f"irg_{self.agent_name}_{round(loss.item(), self.round_scale)}"
-        filepath = agent_sub_dir + f"/{filename}.pt"
-        torch.save(self.brain.state_dict(), filepath)
+        filename_last = f"irg_last_{self.agent_name}_{round(total_loss.item(), self.round_scale)}"
+        filepath_last = agent_sub_dir + f"/{filename_last}.pt"
+        torch.save(self.brain.state_dict(), filepath_last)
+
+        filename_best = f"irg_best_{self.agent_name}_{round(lowest_loss.item(), self.round_scale)}"
+        filepath_best = agent_sub_dir + f"/{filename_best}.pt"
+        torch.save(self.tracking_brain.state_dict(), filepath_best)
 
     def task_latent_distance(self, z:torch.Tensor, z1:torch.Tensor = None, reg_weight: float=100):
         batch_size = z.shape[0]
