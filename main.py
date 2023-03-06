@@ -88,7 +88,7 @@ if __name__ == '__main__':
                         help="Optimizer for irg")
     args = parser.parse_args()
 
-    print("=" * 80)
+    print("="*10, "ENVIRONMENT INFO", "="*10)
     print("Summary of training process:")
     print(f"Environment: {args.env}")
     print(f"stack_size: {args.stack_size}")
@@ -100,14 +100,18 @@ if __name__ == '__main__':
     print(f"Total number of episodes {args.ep}")
     print(f"Discount Factor: {args.gamma}")
     print(f"Partial Observation Area Scale: {args.view}")
-
+    print()
+    
+    print("="*10, "EXPERIMENT INFO", "="*10)
     print(f"Type of training experiment: {args.train_type}")
     print(f"Agent chose in irg-only mode: {args.agent_choose}")
     print(f"Script used in experiment mode: {args.script}")
     print(f"Fix reward function status: {args.fix_reward}")
     print(f"Buffer device: {args.buffer_device}")
     print(f"Cuda Index: {args.device_index}")
+    print()
 
+    print("="*10, "MAIN ALGORITHM INFO", "="*10)
     print(f"Agent: {args.agent}")
     print(f"Backbone in use: {args.backbone}")
     print(f"Epochs: {args.epochs}")
@@ -116,13 +120,15 @@ if __name__ == '__main__':
     print(f"Critic Learning rate: {args.critic_lr}")    
     print(f"Optimizer: {args.opt}")
     print(f"Debug mode: {args.debug_mode}")
+    print()
 
+    print("="*10, "IRG INFO", "="*10)
     print(f"irg: {args.irg}")
     print(f"irg Epochs: {args.irg_epochs}")
     print(f"irg Batch size: {args.irg_bs}")
     print(f"irg Learning rate: {args.irg_lr}")
     print(f"irg Optimizer: {args.irg_opt}")
-    print("=" * 80)
+    print()
 
     if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
         print()
@@ -134,15 +140,15 @@ if __name__ == '__main__':
         if args.device_index > torch.cuda.device_count():
             raise Exception(f"The device chose is higher than the number of available cuda device.\
                 There are {torch.cuda.device_count()} but {args.device_index} chose instead")
-    else:
-        print()
-        print("="*10, "CUDA INFO", "="*10)
-        print(f"Total number of cuda: {torch.cuda.device_count()}")
-        print(f"CUDA current index: {args.device_index}")
-        print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
-        print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
-        print("="*10, "CUDA INFO", "="*10)
-        print()
+        else:
+            print()
+            print("="*10, "CUDA INFO", "="*10)
+            print(f"Total number of cuda: {torch.cuda.device_count()}")
+            print(f"CUDA current index: {args.device_index}")
+            print(f"CUDA device name: {torch.cuda.get_device_name(args.device_index)}")
+            print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
+            print("="*10, "CUDA INFO", "="*10)
+            print()
 
     train = Training(args=args)
     train.train()
