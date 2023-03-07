@@ -401,7 +401,7 @@ class Training:
             reward_win = {
                 agent : 0 for agent in self.agent_names
             }
-
+            round_cnt = 0
             with torch.no_grad():
 
                 next_obs = self.output_env.reset(seed=None)
@@ -456,6 +456,9 @@ class Training:
                     
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
+
+                    if terms[0] != 0:
+                        round_cnt += 1
                 
                 # Update no. win in episode
                 win_log["ep"].append(ep)
@@ -467,7 +470,10 @@ class Training:
                 self.main_algo_agents[agent].update()
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
-            
+
+            print(f"\nEpisode {ep} - Average step: {step/round_cnt}")
+
+
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)
             reward_log_df.to_parquet(reward_log_path)

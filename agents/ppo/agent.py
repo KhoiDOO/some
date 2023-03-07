@@ -216,7 +216,7 @@ class PPO:
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
                 # Approx KL
-                approx_kl = (logprobs_batch[idx].to(self.device) - logprobs).mean()
+                # approx_kl = (logprobs_batch[idx].to(self.device) - logprobs).mean()
 
                 # Logging
                 self.logging(
@@ -227,10 +227,14 @@ class PPO:
                 )
                         
                 # take gradient step
-                if approx_kl <= 1.5 * self.target_kl:
-                    self.actor_opt.zero_grad()
-                    actor_loss.backward()
-                    self.actor_opt.step()
+                # if approx_kl <= 1.5 * self.target_kl:
+                    # self.actor_opt.zero_grad()
+                    # actor_loss.backward()
+                    # self.actor_opt.step()
+
+                self.actor_opt.zero_grad()
+                actor_loss.backward()
+                self.actor_opt.step()
 
                 self.critic_opt.zero_grad()
                 critic_loss.backward()
