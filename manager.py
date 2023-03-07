@@ -416,7 +416,7 @@ class Training:
                             self.frame_size[1]
                         )
                     except:
-                        break # expcetion for maximum score in env
+                        break # exception for maximum score in env
 
                     actions = {
                         agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
@@ -457,7 +457,7 @@ class Training:
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
 
-                    if terms[0] != 0:
+                    if terms[0] != False:
                         round_cnt += 1
                 
                 # Update no. win in episode
