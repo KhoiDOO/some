@@ -77,13 +77,11 @@ class Training:
         self.debug_mode = args_dict["debug_mode"]
 
         self.irg_in_use = args_dict["irg"]
-        self.irg_backbone = args_dict["irg_backbone"]
         self.irg_epochs = args_dict["irg_epochs"]
         self.irg_batch_size = args_dict["irg_bs"]
         self.irg_lr = args_dict["irg_lr"]
         self.irg_optimizer = args_dict["irg_opt"]
         self.irg_merge_loss = args_dict["irg_merge_loss"]
-        self.irg_round_scale = args_dict["irg_round_scale"]
 
         # Environment initialization
         self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
@@ -131,9 +129,7 @@ class Training:
                 train_device=self.train_device,
                 buffer_device=self.buffer_device,
                 merge_loss = self.irg_merge_loss, 
-                save_path = self.model_agent_dir,
-                backbone_scale = self.irg_backbone,
-                round_scale = self.irg_round_scale
+                save_path = self.model_agent_dir
             ) for name in self.agent_names}
 
     def train(self):
@@ -183,7 +179,8 @@ class Training:
                 self.irg_agents[agent].brain.load_state_dict(
                     torch.load(irg_weight_paths[agent], map_location=self.train_device)
                 )
-        
+
+
         for ep in trange(self.episodes):
 
             reward_log = self.main_log_init()
@@ -193,6 +190,8 @@ class Training:
             reward_win = {
                 agent : 0 for agent in self.agent_names
             }
+
+            round_cnt = 0
 
             with torch.no_grad():
 
@@ -300,17 +299,23 @@ class Training:
                     # Update buffer for algo actor critic
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
-                
+                    print(terms[0])
+                    if terms[0] != 0:
+                        round_cnt += 1
+                        print(round_cnt)
+
                 # Update no. win in episode
                 win_log["ep"].append(ep)
                 win_log["step"].append(step)
                 for agent in self.agent_names:
                     win_log[agent].append(reward_win[agent])
-                    
+
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
-                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)
-                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)
+                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
+                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
+
+            print(f"\nEpisode {ep} - Average step: {step / round_cnt}")
 
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)
@@ -401,7 +406,9 @@ class Training:
             reward_win = {
                 agent : 0 for agent in self.agent_names
             }
+
             round_cnt = 0
+
             with torch.no_grad():
 
                 next_obs = self.output_env.reset(seed=None)
@@ -416,7 +423,7 @@ class Training:
                             self.frame_size[1]
                         )
                     except:
-                        break # exception for maximum score in env
+                        break # expcetion for maximum score in env
 
                     actions = {
                         agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
@@ -453,13 +460,13 @@ class Training:
                     reward_log["step"].append(step)
                     for agent in self.agent_names:
                         reward_log[agent].append(rewards[agent])
-                    
+
+                    # Update buffer for algo actor critic
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
-
-                    if terms[0] != False:
+                    if terms[agent] != False:
                         round_cnt += 1
-                
+
                 # Update no. win in episode
                 win_log["ep"].append(ep)
                 win_log["step"].append(step)
@@ -471,8 +478,7 @@ class Training:
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
 
-            print(f"\nEpisode {ep} - Average step: {step/round_cnt}")
-
+            print(f"\nEpisode {ep} - Round: {round_cnt} - Average step: {step / round_cnt}")
 
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)
