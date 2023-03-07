@@ -48,8 +48,7 @@ class PPO:
     def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.05, 
                 lr_critic:float = 0.05, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
                 device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
-                agent_name: str = None, backbone:str = "siamese", target_kl = 0.01,
-                debug_mode = None):
+                agent_name: str = None, backbone:str = "siamese", debug_mode = None):
         """Constructor of PPO
 
         Args:
@@ -67,7 +66,6 @@ class PPO:
         """
         self.gamma = gamma
         self.eps_clip = eps_clip
-        self.target_kl = target_kl
         self.K_epochs = K_epochs
         self.stack_size = stack_size
         self.batch_size = batch_size
@@ -90,8 +88,7 @@ class PPO:
         return {
             "epoch" : [],
             "actor_loss" : [],
-            "critic_loss" : [],
-            "kl" : []
+            "critic_loss" : []
         }
     
     def select_action(self, obs: torch.Tensor):
@@ -215,22 +212,17 @@ class PPO:
 
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
-                # Approx KL
-                approx_kl = (logprobs_batch[idx].to(self.device) - logprobs).mean()
-
                 # Logging
                 self.logging(
                     epoch=e, 
                     actor_loss = actor_loss.item(), 
-                    critic_loss = critic_loss.item(), 
-                    kl = approx_kl.item()
+                    critic_loss = critic_loss.item()
                 )
                         
                 # take gradient step
-                if approx_kl <= 1.5 * self.target_kl:
-                    self.actor_opt.zero_grad()
-                    actor_loss.backward()
-                    self.actor_opt.step()
+                self.actor_opt.zero_grad()
+                actor_loss.backward()
+                self.actor_opt.step()
 
                 self.critic_opt.zero_grad()
                 critic_loss.backward()
@@ -259,19 +251,15 @@ class PPO:
             print("Critic Loss: min -> {0} | max -> {1} | avg -> {2}".format(
                 min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
             ))
-            print("KL Loss: min -> {0} | max -> {1} | avg -> {2}".format(
-                min(self.log["kl"]), max(self.log["kl"]), sum(self.log["kl"])/len(self.log["kl"])
-            ))
 
 
         # clear buffer
         self.buffer.clear()
 
-    def logging(self, epoch = None, actor_loss = None, critic_loss = None, kl = None):
+    def logging(self, epoch = None, actor_loss = None, critic_loss = None):
         self.log["epoch"].append(epoch)
         self.log["actor_loss"].append(actor_loss)
         self.log["critic_loss"].append(critic_loss)
-        self.log["kl"].append(kl)
 
     def export_log(self, rdir: str, ep: int, extension: str = ".parquet"):
         """Export log to file
