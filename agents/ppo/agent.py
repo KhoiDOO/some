@@ -181,7 +181,7 @@ class PPO:
         self.log = self.log_init()
 
         # Optimize policy for K epochs
-        for e in trange(self.K_epochs):
+        for e in range(self.K_epochs):
 
             # Loop through batch
             for idx in range(len(obs_batch)):
