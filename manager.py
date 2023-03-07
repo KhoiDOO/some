@@ -75,6 +75,7 @@ class Training:
         self.critic_lr = args_dict["critic_lr"]
         self.optimizer = args_dict["opt"]
         self.debug_mode = args_dict["debug_mode"]
+        self.eps_clip = args_dict["eps_clip"]
 
         self.irg_in_use = args_dict["irg"]
         self.irg_backbone = args_dict["irg_backbone"]
@@ -101,7 +102,7 @@ class Training:
             lr_critic=self.critic_lr,
             gamma=self.gamma,
             K_epochs=self.epochs,
-            eps_clip=0.2,
+            eps_clip=self.eps_clip,
             device=self.train_device,
             optimizer=self.optimizer,
             batch_size=self.batch_size,
