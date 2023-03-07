@@ -13,8 +13,8 @@ class Buffer:
         raise NotImplementedError
 
 class RolloutBuffer(Buffer):
-    def __init__(self):
-        super.__init__()
+    def __init__(self) -> None:
+        super().__init__()
         self.actions = []
         self.observations = []
         self.logprobs = []
