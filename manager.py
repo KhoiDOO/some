@@ -6,19 +6,28 @@ from utils.batchify import *
 import argparse
 from datetime import datetime
 import torch
+import random
+import numpy as np
 from tqdm import trange
 import pandas as pd
 
 
 class Training:
     def __init__(self, args: argparse.PARSER) -> None:
-        self.args = args
-
+        
         # setup
-
+        self.args = args
         args_dict = vars(self.args)
 
         self.current_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
+
+        # seed setup
+        torch.manual_seed(0)
+        random.seed(0)
+        np.random.seed(0)
+
+        # autotune setup
+        torch.backends.cudnn.benchmark = True
 
         # device setup
         if torch.cuda.is_available():
