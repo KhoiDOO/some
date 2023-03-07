@@ -7,7 +7,7 @@ from torch import optim
 import pandas as pd
 from beautifultable import BeautifulTable
 from agents.irg.modules.irg_backbone import *
-from tqdm import trange
+from datetime import datetime
 
 env_def = {
     "max_cycles" : 124,
@@ -288,7 +288,10 @@ class IRG:
 
         lowest_total_loss = 0
         
-        for epoch in trange(self.epochs):
+        for epoch in range(self.epochs):
+
+            start_time = datetime.now()    
+
             for episode in range(len(self.rb_obs)):
                 for index in range(1, self.rb_obs[episode].shape[0] - self.batch_size - 2):
                     prev_obs = (self.rb_obs[episode][index:index+self.batch_size]/255).to(self.train_device, dtype = torch.float)
@@ -319,7 +322,9 @@ class IRG:
 
                     total_loss = tel + pel + rl + ol + al
 
-                    self.optimizer.zero_grad()
+                    for param in self.brain.parameters():
+                        param.grad = None 
+                    
                     if self.merge_loss:
                         total_loss.backward()
                     else:
@@ -345,11 +350,15 @@ class IRG:
                 ol = ol.item(), 
                 al = al.item())
             
+            end_time = datetime.now()
+
+            time_dif = end_time - start_time
+            
             if self.debug_mode:
                 base_df = pd.DataFrame(self.log)
                 current_epoch_log = base_df[base_df["epoch"] == epoch].to_dict(orient='list')
                 debug_table = BeautifulTable(maxwidth=200)
-                debug_table.rows.append(["Epoch", str(epoch), "Last Total Loss", total_loss.item(), "Lowest Total Loss", lowest_total_loss.item(), "", ""])
+                debug_table.rows.append(["Epoch", str(epoch), "Last Total Loss", total_loss.item(), "Lowest Total Loss", lowest_total_loss.item(), "Time", time_dif])
                 debug_table.rows.append([
                     "Last Trajectory Encoder", tel.item(), 
                     "Min Trajectory Encoder", min(current_epoch_log["tel"]),
@@ -439,6 +448,7 @@ class IRG:
         filepath_best = agent_sub_dir + f"/{filename_best}.pt"
         torch.save(self.tracking_brain.state_dict(), filepath_best)
 
+    # @torch.jit.script
     def trajectory_latent_distance(self, z:torch.Tensor, z1:torch.Tensor = None, reg_weight: float=100) -> torch.Tensor:
         batch_size = z.shape[0]
         reg_weight = reg_weight / (batch_size * (batch_size - 1))
@@ -456,6 +466,7 @@ class IRG:
             2 * reg_weight * torch.mean(priorz_z__kernel)
         return mmd
 
+    # @torch.jit.script
     def trajectory_latent_kernel(self, x1: torch.Tensor, x2: torch.Tensor = None, eps: float = 1e-7, latent_var: float = 2.) -> torch.Tensor:
         x1d = x1.shape
         x2d = x2.shape
@@ -474,6 +485,7 @@ class IRG:
 
         return result
     
+    # @torch.jit.script
     def trajectory_encoder_loss(self, curr_obs, prev_obs, next_obs, prev_act, curr_act, prev_rew, curr_rew, next_rew) -> torch.Tensor:
         trajectory_embedding, obs_trajectory_encoded = self.brain.trajectory_encoder(curr_obs, prev_act, prev_rew)
         policy_embedding, obs_policy_encoded = self.brain.policy_encoder(prev_obs, prev_act)
@@ -499,6 +511,7 @@ class IRG:
         loss = reconstruction_loss + reg_loss + policy_embedding_loss*1e-2 + 1e-3 * l2_reg
         return loss
     
+    # @torch.jit.script
     def policy_encoder_loss(self, prev_obs, prev_act) -> torch.Tensor:
         policy_embedding, obs_policy_encoded = self.brain.policy_encoder(prev_obs, prev_act)
         pred_act = self.brain.policy_decoder(obs_policy_encoded, policy_embedding)
@@ -512,6 +525,7 @@ class IRG:
         loss = reconstruction_loss + reg_loss + l2_reg * 1e-3
         return loss
 
+    # @torch.jit.script
     def reward_loss(self, obs_trajectory_encoded, curr_act, trajectory_embedding, curr_rew) -> torch.Tensor:
         pred_rewards = self.brain.rew_decoder(obs_trajectory_encoded, curr_act, trajectory_embedding)
         l2_reg = torch.tensor(0.).to(self.train_device)
@@ -520,6 +534,7 @@ class IRG:
         loss = torch.mean(torch.sum(torch.square(pred_rewards - curr_rew), dim=1), dim=0) + 1e-3 * l2_reg
         return loss
 
+    # @torch.jit.script
     def observation_loss(self, obs_trajectory_encoded, curr_act, trajectory_embedding, next_obs) -> torch.Tensor:
         pred_obs = self.brain.obs_decoder(obs_trajectory_encoded, curr_act, trajectory_embedding)
         l2_reg = torch.tensor(0.).to(self.train_device)
@@ -532,6 +547,7 @@ class IRG:
         loss = torch.mean(torch.sum(torch.square(pred_obs - next_obs), axis=1), axis=0) + 1e-3 * l2_reg
         return loss
 
+    # @torch.jit.script
     def action_loss(self, obs_policy_encoded, policy_embedding, curr_act) -> torch.Tensor:
         pred_act = self.brain.policy_decoder(obs_policy_encoded, policy_embedding)
         l2_reg = torch.tensor(0.).to(self.train_device)
@@ -547,7 +563,7 @@ if __name__ == "__main__":
         "stack_size" : 4,
         "single_frame_size" : (32, 32)
     }
-    dume = IRG(epochs = 3, 
+    dume = IRG(epochs = 1, 
                batch_size=20, 
                env_dict = env_test, 
                train_device="cpu", 
