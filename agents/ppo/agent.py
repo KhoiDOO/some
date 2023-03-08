@@ -213,24 +213,15 @@ class PPO:
                 # final loss of clipped objective PPO
                 actor_loss = -torch.min(obj, obj_clip).mean() - 0.01 * dist_entropy.mean()
 
-                critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
+                critic_loss = nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
-                # Approx KL
-                # approx_kl = (logprobs_batch[idx].to(self.device) - logprobs).mean()
 
                 # Logging
                 self.logging(
                     epoch=e, 
                     actor_loss = actor_loss.item(), 
-                    critic_loss = critic_loss.item(), 
-                    kl = approx_kl.item()
+                    critic_loss = critic_loss.item()
                 )
-                        
-                # take gradient step
-                # if approx_kl <= 1.5 * self.target_kl:
-                    # self.actor_opt.zero_grad()
-                    # actor_loss.backward()
-                    # self.actor_opt.step()
 
                 self.actor_opt.zero_grad()
                 actor_loss.backward()
