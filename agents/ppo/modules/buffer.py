@@ -30,12 +30,12 @@ class RolloutBuffer(Buffer):
         self.is_terminals = []
     
     def clear(self):
-        del self.actions
-        del self.observations
-        del self.logprobs
-        del self.rewards
-        del self.obs_values
-        del self.is_terminals
+        del self.actions[:]
+        del self.observations[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.obs_values[:]
+        del self.is_terminals[:]
 
 
 class PPORolloutBuffer(Buffer, Dataset):
@@ -100,4 +100,9 @@ class PPORolloutBuffer(Buffer, Dataset):
             self.is_terminals.append(term)
     
     def clear(self):
-        return super().clear()
+        del self.actions[:]
+        del self.observations[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.obs_values[:]
+        del self.is_terminals[:]
