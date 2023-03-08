@@ -1,13 +1,15 @@
 import os, sys
 sys.path.append(os.getcwd())
 import argparse
-from agents.ppo.modules.buffer import RolloutBuffer
+from agents.ppo.modules.buffer import RolloutBuffer, PPORolloutBuffer
 from agents.ppo.modules.backbone import *
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data.distributed import DistributedSampler
 from torch.distributions.categorical import Categorical
-from tqdm import trange
+from torch.utils.data import DataLoader
+import torch.distributed as dist
 from random import uniform, choice
 from torch import optim
 import pandas as pd
@@ -45,10 +47,25 @@ def batch_split(data: list, chunk_size):
     return batch_data
 
 class PPO:
-    def __init__(self, stack_size:int = 4, action_dim:int = 6, lr_actor:float = 0.05, 
-                lr_critic:float = 0.05, gamma:float = 0.99, K_epochs:int = 2, eps_clip:float = 0.2, 
-                device:str = "cuda", optimizer:str = "Adam", batch_size:int = 16, 
-                agent_name: str = None, backbone:str = "siamese", debug_mode = None):
+    def __init__(self, 
+                 stack_size:int = 4, 
+                 action_dim:int = 6, 
+                 lr_actor:float = 0.05, 
+                 lr_critic:float = 0.05, 
+                 gamma:float = 0.99, 
+                 K_epochs:int = 2, 
+                 eps_clip:float = 0.2, 
+                 device:str = "cuda", 
+                 optimizer:str = "Adam", 
+                 batch_size:int = 16, 
+                 agent_name: str = None, 
+                 backbone:str = "siamese", 
+                 debug_mode = None,
+                 exp_mem_replay = False,
+                 distributed_buffer = False,
+                 distributed_learning = False,
+                 distributed_optimizer = False,
+                 lr_decay = True):
         """Constructor of PPO
 
         Args:
@@ -71,8 +88,16 @@ class PPO:
         self.batch_size = batch_size
         self.agent_name = agent_name
         self.debug_mode = debug_mode
+        self.exp_mem_replay = exp_mem_replay
+        self.distributed_buffer = distributed_buffer
+        self.distributed_learning = distributed_learning
+        self.distributed_optimizer = distributed_optimizer
+        self.lr_decay = lr_decay
         
-        self.buffer = RolloutBuffer()
+        if self.exp_mem_replay:
+            self.buffer = PPORolloutBuffer()
+        else:
+            self.buffer = RolloutBuffer()
 
         self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
 
@@ -91,7 +116,9 @@ class PPO:
             "critic_loss" : []
         }
     
+    
     def select_action(self, obs: torch.Tensor):
+        raise DeprecationWarning
         """choose action from the policy
         this function automatically save observation, action predict and value of policy to the buffer
         the insert_buffer function has to be call after this function to avoid mismatch in buffer.
@@ -115,19 +142,32 @@ class PPO:
     def make_action(self, obs: torch.Tensor):
         with torch.no_grad():
             action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
-        return action.item()
+        return action.item(), action_logprob, obs_val
 
-    def insert_buffer(self, single_reward: int, single_is_terminals: bool):
-        """Insert reward and terminal information to the buffer
-
-        Args:
-            single_reward (int): reward gain from each step of env
-            single_is_terminals (bool): is terminated or not
-        """
-        self.buffer.rewards.append(single_reward)
-        self.buffer.is_terminals.append(single_is_terminals)
+    def insert_buffer(self, obs: torch.Tensor, 
+               act: torch.Tensor, 
+               log_probs: torch.Tensor,
+               rew: torch.Tensor,
+               obs_val: torch.Tensor,
+               term: bool):
+        
+        if self.exp_mem_replay:
+            self.buffer.append(obs, 
+               act, 
+               log_probs,
+               rew,
+               obs_val,
+               term)
+        else:
+            self.buffer.observations.append(obs)
+            self.buffer.actions.append(act)
+            self.buffer.logprobs.append(log_probs)
+            self.buffer.obs_values.append(obs_val)
+            self.buffer.rewards.append(rew)
+            self.buffer.is_terminals.append(term)
     
     def buffer_sample(self, sample_count = 125, obs_size = (64, 64)):
+        raise DeprecationWarning
         """Sampling a random buffer for testing train function
 
         Args:
@@ -154,10 +194,106 @@ class PPO:
         print("old_is_terminals: {}".format(len(self.buffer.is_terminals)))
         
     def update(self):
-        """Self updating policy of PPO algoirithm
-        """
+        if self.exp_mem_replay:
+            self._non_distributed_update()
+        else:
+            self._simple_update()
+    
+    def _non_distributed_update(self):
+        raise NotImplementedError
+        self._show_info()
+
+        # Tracking
+        self.log = self.log_init()
+
+        for epoch in range(self.K_epochs):
+
+            for ep in range(len(self.buffer)):
+
+                obs, act, logprobs, rew, obs_val, is_term = self.buffer[ep]
+
+                # reward normalization
+
+                rew_norm = None
+                discount_rew = torch.Tensor(0).to(device=self.device)
+                for _rew, _term in zip(rew, is_term):
+                    if _term:
+                        discount_rew = torch.Tensor(0).to(device=self.device)
+                    
+                    discount_rew = _rew + (self.gamma * discount_rew)
+                    if not rew_norm:
+                        rew_norm = discount_rew
+                    else:
+                        rew_norm = torch.cat(rew_norm, discount_rew)
+
+                for batch_idx in range(0, len(obs.shape[0]), self.batch_size):
+
+                    try:
+                        base_obs = obs[batch_idx:batch_idx + self.batch_size]
+                        base_act = act[batch_idx:batch_idx + self.batch_size]
+                        base_logprobs = logprobs[batch_idx:batch_idx + self.batch_size]
+                        base_obs_val = obs_val[batch_idx:batch_idx + self.batch_size]
+                        base_rew = rew_norm[batch_idx:batch_idx + self.batch_size]
+                    except:
+                        base_obs = obs[batch_idx : ]
+                        base_act = act[batch_idx : ]
+                        base_logprobs = logprobs[batch_idx : ]
+                        base_obs_val = obs_val[batch_idx : ]
+                        base_rew = rew_norm[batch_idx : ]
+
+                    # cal advantage
+                    advantages = base_rew - base_obs_val
+
+                    # Evaluation
+                    action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
+                    dist = Categorical(logits=action_probs)
+
+                    logprobs = dist.log_prob(act_batch[idx].to(self.device))
+                    dist_entropy = dist.entropy()
+                    obs_values = self.policy.critic(obs_batch[idx].to(self.device)/255)
+
+                    # match obs_values tensor dimensions with rewards tensor
+                    obs_values = torch.squeeze(obs_values)
+                    
+                    # Finding the ratio (pi_theta / pi_theta__old)
+                    ratios = torch.exp(logprobs - logprobs_batch[idx].to(self.device))
+
+                    # Finding Surrogate Loss   
+                    obj = ratios * advantages
+                    obj_clip = torch.clamp(ratios, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * advantages
+
+                    # final loss of clipped objective PPO
+                    actor_loss = -torch.min(obj, obj_clip).mean() - 0.01 * dist_entropy.mean()
+
+                    critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
+
+                    # Logging
+                    self.logging(
+                        epoch=e, 
+                        actor_loss = actor_loss.item(), 
+                        critic_loss = critic_loss.item()
+                    )
+                            
+                    # take gradient step
+                    self.actor_opt.zero_grad()
+                    actor_loss.backward()
+                    self.actor_opt.step()
+
+                    self.critic_opt.zero_grad()
+                    critic_loss.backward()
+                    self.critic_opt.step()
+
+                    self.policy_old.load_state_dict(self.policy.state_dict())                    
+    
+    def _distributed_update(self):
+        raise NotImplementedError
+
+    def _show_info(self):
+        print(f"\nPPO Update for agent {self.agent_name}")        
+    
+    def _simple_update(self):
         # Log
-        print(f"\nPPO Update for agent {self.agent_name}")
+        self._show_info()
 
         # Monte Carlo estimate of returns
         rewards = []
@@ -320,8 +456,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ppo = PPO(backbone=args.backbone, device=args.device, K_epochs=args.epoch)
-    ppo.buffer_sample(sample_count = 124)
-    # ppo.debug()
-    ppo.update()
-    # ppo.export_log(rdir = os.getcwd() + "/run", ep = 1)
-    # ppo.model_export(rdir = os.getcwd() + "/run")
