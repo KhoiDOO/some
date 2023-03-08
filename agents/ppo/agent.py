@@ -142,7 +142,7 @@ class PPO:
     def make_action(self, obs: torch.Tensor):
         with torch.no_grad():
             action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
-        return action.item(), action_logprob, obs_val
+        return action, action_logprob, obs_val
 
     def insert_buffer(self, obs: torch.Tensor, 
                act: torch.Tensor, 
