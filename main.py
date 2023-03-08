@@ -10,6 +10,9 @@ if __name__ == '__main__':
     print("__main__")
 
     parser = argparse.ArgumentParser()
+    # Check Mode
+    parser.add_argument("--check", type=bool, default=False, choices=[True, False],
+                        help="CLI Check")
     # Environment
     parser.add_argument("--env", type=str, default="warlords", choices=["warlords", "pong", "coop-pong"],
                         help="Environment used in training and testing")
@@ -69,14 +72,19 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--critic_lr", type=float, default=0.0005,
                         help="learning rate")
+    parser.add_argument("--eps_clip", type=float, default=0.2,
+                        help="Epsilon clip used in ppo clip gradient")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
-    parser.add_argument("--debug_mode", type=int, default=None,
+    parser.add_argument("--debug_mode", type=int, default=None, choices=[0, 1, 2],
                         help="Debug mode")
 
     # irg
     parser.add_argument("--irg", type=bool, default=True,
                         help="Partial Observation Deep Policy")
+    parser.add_argument("--irg_backbone", type=str, default="small", 
+                        choices=["small", "normal"],
+                        help="Backbone used in training")
     parser.add_argument("--irg_epochs", type=int, default=1,
                         help="Number of epoch for training")
     parser.add_argument("--irg_bs", type=int, default=32,
@@ -87,17 +95,19 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--irg_opt", type=str, default="Adam",
                         help="Optimizer for irg")
+    parser.add_argument("--irg_round_scale", type=int, default=2,
+                        help="Number of number after comma in decimal")
     args = parser.parse_args()
 
-    table = BeautifulTable(maxwidth=140)
-    table.rows.append([args.env, "train_type", args.train_type, "agent", args.agent, "IRG", args.irg])
+    table = BeautifulTable(maxwidth=140, detect_numerics = False)
+    table.rows.append([args.env, "train_type", args.train_type, "agent", args.agent, "IRG", str(args.irg)])
     table.rows.append([args.stack_size, "agent_choose", args.agent_choose, "backbone", args.backbone, "irg_epochs", args.irg_epochs])
     table.rows.append([args.frame_size, "script", args.script, "epochs", args.epochs, "irg_bs", args.irg_bs])
-    table.rows.append([args.parallel, "fix_reward", args.fix_reward, "bs", args.bs, "irg_lr", args.irg_lr])
-    table.rows.append([args.color_reduction, "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
-    table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", args.irg_merge_loss])
-    table.rows.append([args.max_cycles, "", "", "opt", args.opt, "", ""])
-    table.rows.append([args.ep, "", "", "", "", "", ""])
+    table.rows.append([str(args.parallel), "fix_reward", str(args.fix_reward), "bs", args.bs, "irg_lr", args.irg_lr])
+    table.rows.append([str(args.color_reduction), "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
+    table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", str(args.irg_merge_loss)])
+    table.rows.append([args.max_cycles, "", "", "opt", args.opt, "irg_backbone", args.irg_backbone])
+    table.rows.append([args.ep, "", "", "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
     table.rows.append([args.gamma, "", "", "", "", "", ""])
     table.rows.append([args.view, "", "", "", "", "", ""])
     table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view"]
@@ -124,5 +134,6 @@ if __name__ == '__main__':
             print("="*10, "CUDA INFO", "="*10)
             print()
 
-    train = Training(args=args)
-    train.train()
+    if not args.check:
+        train = Training(args=args)
+        train.train()

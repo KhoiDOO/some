@@ -75,13 +75,16 @@ class Training:
         self.critic_lr = args_dict["critic_lr"]
         self.optimizer = args_dict["opt"]
         self.debug_mode = args_dict["debug_mode"]
+        self.eps_clip = args_dict["eps_clip"]
 
         self.irg_in_use = args_dict["irg"]
+        self.irg_backbone = args_dict["irg_backbone"]
         self.irg_epochs = args_dict["irg_epochs"]
         self.irg_batch_size = args_dict["irg_bs"]
         self.irg_lr = args_dict["irg_lr"]
         self.irg_optimizer = args_dict["irg_opt"]
         self.irg_merge_loss = args_dict["irg_merge_loss"]
+        self.irg_round_scale = args_dict["irg_round_scale"]
 
         # Environment initialization
         self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
@@ -99,7 +102,7 @@ class Training:
             lr_critic=self.critic_lr,
             gamma=self.gamma,
             K_epochs=self.epochs,
-            eps_clip=0.2,
+            eps_clip=self.eps_clip,
             device=self.train_device,
             optimizer=self.optimizer,
             batch_size=self.batch_size,
@@ -129,7 +132,9 @@ class Training:
                 train_device=self.train_device,
                 buffer_device=self.buffer_device,
                 merge_loss = self.irg_merge_loss, 
-                save_path = self.model_agent_dir
+                save_path = self.model_agent_dir,
+                backbone_scale = self.irg_backbone,
+                round_scale = self.irg_round_scale
             ) for name in self.agent_names}
 
     def train(self):
