@@ -1,4 +1,10 @@
+import os, sys
+sys.path.append(os.getcwd())
 import torch
+from torch.utils.data import Dataset
+
+from spds.torchtensorlist import TorchTensorList
+
 
 class Buffer:
     def __init__(self) -> None:
@@ -11,6 +17,7 @@ class Buffer:
     
     def clear(self):
         raise NotImplementedError
+    
 
 class RolloutBuffer(Buffer):
     def __init__(self) -> None:
@@ -22,7 +29,6 @@ class RolloutBuffer(Buffer):
         self.obs_values = []
         self.is_terminals = []
     
-
     def clear(self):
         del self.actions
         del self.observations
@@ -31,67 +37,67 @@ class RolloutBuffer(Buffer):
         del self.obs_values
         del self.is_terminals
 
-class TorchRolloutBuffer(Buffer):
-    def __init__(self, 
-                 device:torch.device = None,
-                 ele_shapes = {
-                    'act' : (1),
-                    "obs" : (4, 64, 64),
-                    "logprobs" : (),
-                    "rewards" : (1),
-                    "obs_values" : (1) 
-                 }) -> None:
+
+class PPORolloutBuffer(Buffer, Dataset):
+    def __init__(self, capacity:int,
+                 device:torch.device = None) -> None:
         super().__init__()
         if device:
             self.device = device
         else:
             self.device = "cpu"
-        
-        if not ele_shapes:
-            raise Exception("Arg ele_shapes cannot be None")
-        elif not isinstance(ele_shapes, dict):
-            raise Exception(f"Arg ele_shapes type must be dict but found {type(ele_shapes)} instead")
 
-        self.actions = TorchTensorList(ele_shape=ele_shapes["act"], device=self.device)
-        self.observations = TorchTensorList(ele_shape=ele_shapes["obs"], device=self.device)
-        self.logprobs = TorchTensorList(ele_shape=ele_shapes["logprobs"], device=self.device)
-        self.rewards = TorchTensorList(ele_shape=ele_shapes["rewards"], device=self.device)
-        self.obs_values = TorchTensorList(ele_shape=ele_shapes["obs_values"], device=self.device)
+        self.actions = TorchTensorList(device=self.device)
+        self.observations = TorchTensorList(device=self.device)
+        self.logprobs = TorchTensorList(device=self.device)
+        self.rewards = TorchTensorList(device=self.device)
+        self.obs_values = TorchTensorList(device=self.device)
         self.is_terminals = []
+
+        self.count = 0
+        self.capacity = capacity    
+
+    def __len__(self):
+        return len(self.observations)
+    
+    def __getitem__(self, idx):
+        return (self.observations[idx], 
+                self.actions[idx],
+                self.logprobs[idx],
+                self.rewards[idx],
+                self.obs_values[idx],
+                self.is_terminals[idx])
+    
+    def append(self, 
+               obs: torch.Tensor, 
+               act: torch.Tensor, 
+               log_probs: torch.Tensor,
+               rew: torch.Tensor,
+               obs_val: torch.Tensor,
+               term: bool):
+        
+        if self.count < self.capacity:
+            self.count += 1
+            self.observations.append(obs)
+            self.actions.append(act)
+            self.logprobs.append(log_probs)
+            self.rewards.append(rew)
+            self.obs_values.append(obs_val)
+            self.is_terminals.append(term)
+        else:
+            self.observations.pop()
+            self.actions.pop()
+            self.logprobs.pop()
+            self.rewards.pop()
+            self.obs_values.pop()
+            self.is_terminals.pop()
+
+            self.observations.append(obs)
+            self.actions.append(act)
+            self.logprobs.append(log_probs)
+            self.rewards.append(rew)
+            self.obs_values.append(obs_val)
+            self.is_terminals.append(term)
     
     def clear(self):
         return super().clear()
-
-class TorchTensorList:
-    def __init__(self, ele_shape:tuple = (), device:torch.device = None) -> None:
-        if ele_shape == None:
-            raise Exception("Arg ele_shape must not be None")
-        elif not isinstance(ele_shape, tuple):
-            raise Exception(f"Arg ele_shape type must be Tuple but found {type(ele_shape)} instead")
-        if device:
-            self.device = device
-        else:
-            self.device = "cpu"
-
-        self.count = 0
-        self.arr = torch.randn(ele_shape)[None, :].to(device = self.device)
-    
-    def __len__(self):
-        return self.count
-    
-    def __setitem__(self, index):
-        raise NotImplementedError
-    
-        if not 0 <= index < self.count:
-            raise Exception("Torch List index out of range")
-        else:
-            pass
-    
-    def __getitem__(self):
-        raise NotImplementedError
-    
-    def append(self):
-        raise NotImplementedError
-
-    def insert(self):
-        raise NotImplementedError
