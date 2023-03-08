@@ -85,6 +85,11 @@ class Training:
         self.optimizer = args_dict["opt"]
         self.debug_mode = args_dict["debug_mode"]
         self.eps_clip = args_dict["eps_clip"]
+        self.exp_mem = args_dict["exp_mem"]
+        self.dist_buff = args_dict["dist_buff"]
+        self.dist_learn = args_dict["dist_learn"]
+        self.dist_opt = args_dict["dist_opt"]
+        self.lr_decay = args_dict["lr_decay"]
 
         self.irg_in_use = args_dict["irg"]
         self.irg_backbone = args_dict["irg_backbone"]
@@ -116,7 +121,12 @@ class Training:
             optimizer=self.optimizer,
             batch_size=self.batch_size,
             agent_name=name,
-            debug_mode = self.debug_mode
+            debug_mode = self.debug_mode,
+            exp_mem_replay = self.exp_mem,
+            distributed_buffer = self.dist_buff,
+            distributed_learning = self.dist_learn,
+            distributed_optimizer = self.dist_opt,
+            lr_decay = self.lr_decay
         ) for name in self.agent_names}
 
         # Environment Params Dictionary for IRG
@@ -428,11 +438,22 @@ class Training:
                     except:
                         break # expcetion for maximum score in env
 
-                    actions = {
-                        agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
-                    }
+                    # actions = {
+                    #     agent: self.main_algo_agents[agent].act(curr_obs) for agent in self.agent_names
+                    # }
 
-                    next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
+                    # Make action
+                    actions, actions_buffer, log_probs_buffer, obs_values_buffer = {}, {}, {}, {}
+
+                    for agent in self.agent_names:
+                        curr_act, curr_logprob, curr_obs_val = self.main_algo_agents[agent].make_action(curr_obs)
+
+                        actions[agent] = curr_act.item()
+                        actions_buffer[agent] = curr_act
+                        log_probs_buffer[agent] = curr_logprob
+                        obs_values_buffer[agent] = curr_obs_val
+
+                    next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
 
                     # Update termination
                     terms = {
@@ -465,7 +486,12 @@ class Training:
                         reward_log[agent].append(rewards[agent])
                     
                     for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
+                        self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
+                                                                    act = actions_buffer[agent], 
+                                                                    log_probs = log_probs_buffer[agent],
+                                                                    rew = rewards[agent],
+                                                                    obs_val = obs_values_buffer[agent],
+                                                                    term = terms[agent])
                 
                 # Update no. win in episode
                 win_log["ep"].append(ep)

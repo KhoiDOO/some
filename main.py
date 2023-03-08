@@ -78,6 +78,18 @@ if __name__ == '__main__':
                         help="Optimizer")
     parser.add_argument("--debug_mode", type=int, default=None, choices=[0, 1, 2],
                         help="Debug mode")
+    parser.add_argument("--exp_mem", type=bool, default=False,
+                        help="Using experience memory replay")
+    parser.add_argument("--dist_buff", type=bool, default=False,
+                        help="Using memory distributed experience memory replay")
+    parser.add_argument("--dist_cap", type=int, default=5,
+                        help="Capacity - Number of episodes stored in dynamic Torch Tensor List")
+    parser.add_argument("--dist_learn", type=bool, default=False,
+                        help="Learning in multi GPUS")
+    parser.add_argument("--dist_opt", type=bool, default=False,
+                        help="Gradient Storing multi GPUs")
+    parser.add_argument("--lr_decay", type=bool, default=False,
+                        help="Learning Rate Scheduler")
 
     # irg
     parser.add_argument("--irg", type=bool, default=True,
@@ -108,9 +120,13 @@ if __name__ == '__main__':
     table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", str(args.irg_merge_loss)])
     table.rows.append([args.max_cycles, "", "", "opt", args.opt, "irg_backbone", args.irg_backbone])
     table.rows.append([args.ep, "", "", "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
-    table.rows.append([args.gamma, "", "", "", "", "", ""])
-    table.rows.append([args.view, "", "", "", "", "", ""])
-    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view"]
+    table.rows.append([args.gamma, "", "", "exp_mem", str(args.exp_mem), "", ""])
+    table.rows.append([args.view, "", "", "dist_buff", str(args.dist_buff), "", ""])
+    table.rows.append(["", "", "", "dist_cap", args.dist_cap, "", ""])
+    table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
+    table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
+    table.rows.append(["", "", "", "lr_decay", str(args.lr_decay), "", ""])
+    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", ""]
     table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
     print(table)
 
