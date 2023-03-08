@@ -1,24 +1,28 @@
 import torch
 
 class TorchTensorList:
-    def __init__(self, ele_shape:tuple = (), device:torch.device = None) -> None:
-        if ele_shape == None:
-            raise Exception("Arg ele_shape must not be None")
-        elif not isinstance(ele_shape, tuple):
-            raise Exception(f"Arg ele_shape type must be Tuple but found {type(ele_shape)} instead")
+    def __init__(self, 
+                 device:torch.device = None) -> None:
+
         if device:
             self.device = device
         else:
             self.device = "cpu"
 
         self.count = 0
-        self.arr = torch.randn(ele_shape)[None, :].to(device = self.device)
+        self.express_line = []
+        self.arr = None
     
     def __len__(self):
         return self.count
     
     def size(self):
+        if self.arr == None:
+            return None
         return self.arr.shape
+    
+    def get_epr_line(self):
+        return self.express_line
         
     @staticmethod
     def _check_index(self, index):
@@ -35,6 +39,8 @@ class TorchTensorList:
             raise Exception("node cannot be None")
         elif not isinstance(input, torch.Tensor):
             raise Exception(f"node must be an integer but found {type(input)} instead")
+        # elif not input.shape == self.ele_shape:
+        #     raise Exception(f"Torch Tensor List cannot take another shape vector")
     
     def __setitem__(self, index: int , x: torch.Tensor):
         raise NotImplementedError    
@@ -43,28 +49,49 @@ class TorchTensorList:
         self._check_input(input=x)
     
     def __getitem__(self, index: int):
-        self._check_index(index=index)
+        self._check_index(self, index=index)
 
-        return self.arr[index]
+        if index == 0:
+            return self.arr[: self.express_line[index]]
+        else:
+            return self.arr[sum(self.express_line[:index]) : sum(self.express_line[:index+1]), :]
     
     def append(self, x:torch.Tensor):
+        self._check_input(x)
+
         if self.count == 0:
-            self.arr = x[None, :]
+            self.arr = x
             self.count += 1
+            self.express_line.append(x.shape[0])
         else:
-            self.arr = torch.cat((self.arr, x[None, :]))
+            self.count += 1
+            self.express_line.append(x.shape[0])
+            self.arr = torch.cat((self.arr, x))
+    
+    def pop(self):
+        if self.count == 0:
+            raise Exception("There is no data in Torch Tensor List")
+        else:
+            self.count -= 1
+            self.express_line.pop()
+            self.arr = self.arr[self.express_line[0]:]
         
     def insert(self):
         raise NotImplementedError
 
 if __name__ == "__main__":
 
-    test_list = TorchTensorList(ele_shape=(1, 4, 32, 32))
+    test_list = TorchTensorList()
 
     print(test_list.size())
 
-    # for idx in range(9):
-    #     x = torch.randn((idx+1, 4, 32, 32))        
-    #     test_list.append(x)
-    
-    # print(test_list.size())
+    for idx in range(9):
+        test_list.append(torch.randn((idx + 1, 4 , 32, 32)))
+
+    print(test_list.size())
+
+    print(len(test_list))
+
+    print(test_list.get_epr_line())
+
+    print(test_list[6].shape)
