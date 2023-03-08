@@ -17,12 +17,24 @@ class BaseLayer(nn.Module):
 
         self.backbone_mapping = {
             4 : {
-                "encoder" : SimpleEncoder,
-                "decoder" : SimpleDecoder
+                "normal" : {
+                    "encoder" : SimpleEncoder,
+                    "decoder" : SimpleDecoder
+                },
+                "small" : {
+                    "encoder" : SimpleEncoderSmall,
+                    "decoder" : SimpleDecoderSmall,
+                }
             },
             2 : {
-                "encoder" : SimpleEncoder2Player,
-                "decoder" : SimpleDecoder2Player
+                "small" : {
+                    "encoder" : SimpleEncoder2PlayerSmall,
+                    "decoder" : SimpleDecoder2PlayerSmall
+                },
+                "normal" : {
+                    "encoder" : SimpleEncoder2Player,
+                    "decoder" : SimpleDecoder2Player
+                }
             }
         }
     
