@@ -93,9 +93,10 @@ class PPO:
         self.distributed_learning = distributed_learning
         self.distributed_optimizer = distributed_optimizer
         self.lr_decay = lr_decay
+        self.device = device
         
         if self.exp_mem_replay:
-            self.buffer = PPORolloutBuffer()
+            self.buffer = PPORolloutBuffer(device = self.device)
         else:
             self.buffer = RolloutBuffer()
 
@@ -107,7 +108,7 @@ class PPO:
         self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
-        self.device = device
+        
 
     def log_init(self):
         return {
@@ -195,12 +196,14 @@ class PPO:
         
     def update(self):
         if self.exp_mem_replay:
-            self._non_distributed_update()
+            if self.distributed_buffer:
+                self._distributed_update()
+            else:
+                self._non_distributed_update()
         else:
             self._simple_update()
     
     def _non_distributed_update(self):
-        raise NotImplementedError
         self._show_info()
 
         # Tracking
@@ -245,18 +248,18 @@ class PPO:
                     advantages = base_rew - base_obs_val
 
                     # Evaluation
-                    action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
+                    action_probs = self.policy.actor(base_obs/255)
                     dist = Categorical(logits=action_probs)
 
-                    logprobs = dist.log_prob(act_batch[idx].to(self.device))
+                    logprobs = dist.log_prob(base_act)
                     dist_entropy = dist.entropy()
-                    obs_values = self.policy.critic(obs_batch[idx].to(self.device)/255)
+                    obs_values = self.policy.critic(base_obs/255)
 
                     # match obs_values tensor dimensions with rewards tensor
                     obs_values = torch.squeeze(obs_values)
                     
                     # Finding the ratio (pi_theta / pi_theta__old)
-                    ratios = torch.exp(logprobs - logprobs_batch[idx].to(self.device))
+                    ratios = torch.exp(logprobs - base_logprobs)
 
                     # Finding Surrogate Loss   
                     obj = ratios * advantages
@@ -265,11 +268,11 @@ class PPO:
                     # final loss of clipped objective PPO
                     actor_loss = -torch.min(obj, obj_clip).mean() - 0.01 * dist_entropy.mean()
 
-                    critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
+                    critic_loss = 0.5 * nn.MSELoss()(obs_values, base_rew)
 
                     # Logging
                     self.logging(
-                        epoch=e, 
+                        epoch=epoch, 
                         actor_loss = actor_loss.item(), 
                         critic_loss = critic_loss.item()
                     )
@@ -283,7 +286,29 @@ class PPO:
                     critic_loss.backward()
                     self.critic_opt.step()
 
-                    self.policy_old.load_state_dict(self.policy.state_dict())                    
+                    self.policy_old.load_state_dict(self.policy.state_dict())   
+
+        if self.debug_mode == None:
+            pass
+        elif self.debug_mode == 0:
+            print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+        elif self.debug_mode == 1:
+            print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+
+            if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
+                print("Policy is updated")
+            if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
+                print("Actor is updated")
+            if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
+                print("Critic is updated")
+        elif self.debug_mode == 2:
+            print(f"Total step: {len(self.buffer.observations)}")
+            print("Actor Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"])
+            ))
+            print("Critic Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
+            ))              
     
     def _distributed_update(self):
         raise NotImplementedError
