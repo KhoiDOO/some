@@ -60,13 +60,13 @@ class TorchTensorList:
         self._check_input(x)
 
         if self.count == 0:
-            self.arr = x
+            self.arr = x.to(device=self.device)
             self.count += 1
             self.express_line.append(x.shape[0])
         else:
             self.count += 1
             self.express_line.append(x.shape[0])
-            self.arr = torch.cat((self.arr, x))
+            self.arr = torch.cat((self.arr, x.to(device=self.device)))
     
     def pop(self):
         if self.count == 0:
@@ -81,7 +81,7 @@ class TorchTensorList:
 
 if __name__ == "__main__":
 
-    test_list = TorchTensorList()
+    test_list = TorchTensorList(device="cuda")
 
     print(test_list.size())
 
