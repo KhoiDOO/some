@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn as nn
 
 class ActorCriticSiamese(ACSiamese):
-    def __init__(self, num_actions: int, stack_size: int):
+    def __init__(self, num_actions: int, stack_size: int) -> nn.Module:
         super().__init__()
 
         self.actor = nn.Sequential(
@@ -41,7 +41,7 @@ class ActorCriticSiamese(ACSiamese):
         )
 
 class ActorCriticSiameseSmall(ACSiamese):
-    def __init__(self, num_actions: int, stack_size: int) -> None:
+    def __init__(self, num_actions: int, stack_size: int) -> nn.Module:
         super().__init__()
 
         self.actor = nn.Sequential(
@@ -76,7 +76,7 @@ class ActorCriticSiameseSmall(ACSiamese):
         )
 
 class ActorCriticSiameseNano(ACSiamese):
-    def __init__(self, num_actions: int, stack_size: int) -> None:
+    def __init__(self, num_actions: int, stack_size: int) -> nn.Module:
         super().__init__()
         self.actor = nn.Sequential(
             # 4 * 32 * 64
@@ -107,7 +107,7 @@ class ActorCriticSiameseNano(ACSiamese):
         )
 
 class ActorCriticMultiHead(ACMultiHead):
-    def __init__(self, num_actions: int, stack_size: int):
+    def __init__(self, num_actions: int, stack_size: int) -> nn.Module:
         super().__init__()
 
         self.network = nn.Sequential(
@@ -132,7 +132,7 @@ class ActorCriticMultiHead(ACMultiHead):
             
 
 class ActorCriticMultiHeadSmall(ACMultiHead):
-    def __init__(self, num_actions: int, stack_size: int) -> None:
+    def __init__(self, num_actions: int, stack_size: int) -> nn.Module:
         super().__init__()
 
         self.network = nn.Sequential(
