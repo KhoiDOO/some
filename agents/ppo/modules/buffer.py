@@ -39,7 +39,7 @@ class RolloutBuffer(Buffer):
 
 
 class PPORolloutBuffer(Buffer, Dataset):
-    def __init__(self, capacity:int,
+    def __init__(self, capacity:int = 5,
                  device:torch.device = None) -> None:
         super().__init__()
         if device:
