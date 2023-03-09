@@ -203,6 +203,9 @@ class PPO:
         else:
             self._simple_update()
     
+    def _show_info(self):
+        print(f"\nPPO Update for agent {self.agent_name}")      
+    
     def _non_distributed_update(self):
         self._show_info()
 
@@ -213,36 +216,37 @@ class PPO:
 
             for ep in range(len(self.buffer)):
 
-                obs, act, logprobs, rew, obs_val, is_term = self.buffer[ep]
+                obs_full, act_full, logprobs_full, rew_full, obs_val_full, is_term = self.buffer[ep]
 
                 # reward normalization
 
                 rew_norm = None
-                discount_rew = torch.Tensor(0).to(device=self.device)
-                for _rew, _term in zip(rew, is_term):
+                discount_rew = torch.tensor([0]).to(device=self.device)
+                for _rew, _term in zip(rew_full, is_term):
                     if _term:
-                        discount_rew = torch.Tensor(0).to(device=self.device)
+                        discount_rew = torch.tensor([0]).to(device=self.device)
                     
                     discount_rew = _rew + (self.gamma * discount_rew)
-                    if not rew_norm:
+                    if rew_norm == None:
                         rew_norm = discount_rew
                     else:
-                        rew_norm = torch.cat(rew_norm, discount_rew)
+                        rew_norm = torch.cat((rew_norm, discount_rew))
 
-                for batch_idx in range(0, len(obs.shape[0]), self.batch_size):
+                for batch_idx in range(0, obs_full.shape[0], self.batch_size):
 
                     try:
-                        base_obs = obs[batch_idx:batch_idx + self.batch_size]
-                        base_act = act[batch_idx:batch_idx + self.batch_size]
-                        base_logprobs = logprobs[batch_idx:batch_idx + self.batch_size]
-                        base_obs_val = obs_val[batch_idx:batch_idx + self.batch_size]
+                        base_obs = obs_full[batch_idx:batch_idx + self.batch_size]
+                        base_act = act_full[batch_idx:batch_idx + self.batch_size]
+                        base_logprobs = logprobs_full[batch_idx:batch_idx + self.batch_size]
+                        base_obs_val = obs_val_full[batch_idx:batch_idx + self.batch_size]
                         base_rew = rew_norm[batch_idx:batch_idx + self.batch_size]
                     except:
-                        base_obs = obs[batch_idx : ]
-                        base_act = act[batch_idx : ]
-                        base_logprobs = logprobs[batch_idx : ]
-                        base_obs_val = obs_val[batch_idx : ]
-                        base_rew = rew_norm[batch_idx : ]
+                        if obs_full.shape[0] - batch_idx >= 1:
+                            base_obs = obs_full[batch_idx : ]
+                            base_act = act_full[batch_idx : ]
+                            base_logprobs = logprobs_full[batch_idx : ]
+                            base_obs_val = obs_val_full[batch_idx : ]
+                            base_rew = rew_norm[batch_idx : ]
 
                     # cal advantage
                     advantages = base_rew - base_obs_val
@@ -312,9 +316,6 @@ class PPO:
     
     def _distributed_update(self):
         raise NotImplementedError
-
-    def _show_info(self):
-        print(f"\nPPO Update for agent {self.agent_name}")        
     
     def _simple_update(self):
         # Log
