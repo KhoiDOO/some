@@ -86,6 +86,7 @@ class Training:
         self.debug_mode = args_dict["debug_mode"]
         self.eps_clip = args_dict["eps_clip"]
         self.exp_mem = args_dict["exp_mem"]
+        self.dist_cap = args_dict["dist_cap"]
         self.dist_buff = args_dict["dist_buff"]
         self.dist_learn = args_dict["dist_learn"]
         self.dist_opt = args_dict["dist_opt"]
@@ -110,19 +111,20 @@ class Training:
 
         # Actor Critic Initialization
         self.main_algo_agents = {name: agent_mapping[self.agent_algo](
-            stack_size=self.stack_size,
-            action_dim=self.output_env.action_space(self.output_env.possible_agents[0]).n,
-            lr_actor=self.actor_lr,
-            lr_critic=self.critic_lr,
-            gamma=self.gamma,
-            K_epochs=self.epochs,
-            eps_clip=self.eps_clip,
-            device=self.train_device,
-            optimizer=self.optimizer,
-            batch_size=self.batch_size,
-            agent_name=name,
+            stack_size = self.stack_size,
+            action_dim = self.output_env.action_space(self.output_env.possible_agents[0]).n,
+            lr_actor = self.actor_lr,
+            lr_critic = self.critic_lr,
+            gamma = self.gamma,
+            K_epochs = self.epochs,
+            eps_clip = self.eps_clip,
+            device = self.train_device,
+            optimizer = self.optimizer,
+            batch_size = self.batch_size,
+            agent_name = name,
             debug_mode = self.debug_mode,
             exp_mem_replay = self.exp_mem,
+            exp_mem_cap = self.dist_cap,
             distributed_buffer = self.dist_buff,
             distributed_learning = self.dist_learn,
             distributed_optimizer = self.dist_opt,
@@ -141,15 +143,15 @@ class Training:
         # IRG initialization
         if self.irg_in_use:
             self.irg_agents = {name: agent_mapping["irg"](
-                batch_size=self.irg_batch_size,
-                lr=self.irg_lr,
-                gamma=self.gamma,
-                optimizer=self.irg_optimizer,
-                agent_name=name,
-                epochs=self.irg_epochs,
-                env_dict=self.env_irg_def,
-                train_device=self.train_device,
-                buffer_device=self.buffer_device,
+                batch_size = self.irg_batch_size,
+                lr = self.irg_lr,
+                gamma = self.gamma,
+                optimizer = self.irg_optimizer,
+                agent_name = name,
+                epochs = self.irg_epochs,
+                env_dict = self.env_irg_def,
+                train_device = self.train_device,
+                buffer_device = self.buffer_device,
                 merge_loss = self.irg_merge_loss, 
                 save_path = self.model_agent_dir,
                 backbone_scale = self.irg_backbone,
