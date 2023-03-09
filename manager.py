@@ -510,13 +510,14 @@ class Training:
                             obs_val_lst[agent].append(obs_values_buffer[agent])
                             term_lst[agent].append(terms[agent])
                 
-                for agent in self.agent_names:
-                    self.main_algo_agents[agent].insert_buffer(obs = torch.stack(obs_lst), 
-                                                                act = torch.stack(act_lst[agent]), 
-                                                                log_probs = torch.stack(log_prob_lst[agent]),
-                                                                rew = torch.stack(rew_lst[agent]),
-                                                                obs_val = torch.stack(obs_val_lst[agent]),
-                                                                term = term_lst[agent])
+                if self.exp_mem:
+                    for agent in self.agent_names:
+                        self.main_algo_agents[agent].insert_buffer(obs = torch.stack(obs_lst), 
+                                                                    act = torch.stack(act_lst[agent]), 
+                                                                    log_probs = torch.stack(log_prob_lst[agent]),
+                                                                    rew = torch.stack(rew_lst[agent]),
+                                                                    obs_val = torch.stack(obs_val_lst[agent]),
+                                                                    term = term_lst[agent])
                 
                 # Update no. win in episode
                 win_log["ep"].append(ep)
