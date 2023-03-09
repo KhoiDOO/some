@@ -128,7 +128,8 @@ if __name__ == '__main__':
     table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
     table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
     table.rows.append(["", "", "", "lr_decay", str(args.lr_decay), "", ""])
-    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", ""]
+    table.rows.append(["", "", "", "lr_row", str(args.lr_low), "", ""])
+    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", "", ""]
     table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
     print(table)
 
