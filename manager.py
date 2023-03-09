@@ -448,10 +448,6 @@ class Training:
                     except:
                         break # expcetion for maximum score in env
 
-                    # actions = {
-                    #     agent: self.main_algo_agents[agent].act(curr_obs) for agent in self.agent_names
-                    # }
-
                     # Make action
                     actions, actions_buffer, log_probs_buffer, obs_values_buffer = {}, {}, {}, {}
 
@@ -531,6 +527,11 @@ class Training:
                 self.main_algo_agents[agent].update()
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
+
+                self.main_algo_agents[agent].update_lr(end_no_tstep = step,
+                                                       max_time_step = self.episodes * self.max_cycles)
+                
+                # print(self.main_algo_agents[agent].get_critic_lr())
             
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)
