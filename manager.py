@@ -91,6 +91,7 @@ class Training:
         self.dist_learn = args_dict["dist_learn"]
         self.dist_opt = args_dict["dist_opt"]
         self.lr_decay = args_dict["lr_decay"]
+        self.lr_low = args_dict["lr_low"]
 
         self.irg_in_use = args_dict["irg"]
         self.irg_backbone = args_dict["irg_backbone"]
@@ -128,7 +129,8 @@ class Training:
             distributed_buffer = self.dist_buff,
             distributed_learning = self.dist_learn,
             distributed_optimizer = self.dist_opt,
-            lr_decay = self.lr_decay
+            lr_decay = self.lr_decay,
+            lr_low = self.lr_low
         ) for name in self.agent_names}
 
         # Environment Params Dictionary for IRG

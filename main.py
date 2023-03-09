@@ -90,6 +90,8 @@ if __name__ == '__main__':
                         help="Gradient Storing multi GPUs")
     parser.add_argument("--lr_decay", type=bool, default=False,
                         help="Learning Rate Scheduler")
+    parser.add_argument("--lr_low", type=float, default=float(1e-12),
+                        help="Lowest learning rate achieved")
 
     # irg
     parser.add_argument("--irg", type=bool, default=True,
@@ -130,13 +132,13 @@ if __name__ == '__main__':
     table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
     print(table)
 
-    if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
+    if not torch.cuda.is_available():
         print()
         print("="*10, "CUDA INFO", "="*10)
         print(f"Cuda is not available on this machine")
         print("="*10, "CUDA INFO", "="*10)
         print()
-    elif args.device_index:
+    elif not args.device_index == None:
         if args.device_index > torch.cuda.device_count():
             raise Exception(f"The device chose is higher than the number of available cuda device.\
                 There are {torch.cuda.device_count()} but {args.device_index} chose instead")
@@ -149,6 +151,10 @@ if __name__ == '__main__':
             print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
             print("="*10, "CUDA INFO", "="*10)
             print()
+    else:
+        print("="*10, "CUDA INFO", "="*10)
+        print("CUDA not in use")
+        print("="*10, "CUDA INFO", "="*10)
 
     if not args.check:
         train = Training(args=args)
