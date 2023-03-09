@@ -66,7 +66,8 @@ class PPO:
                  distributed_buffer = False,
                  distributed_learning = False,
                  distributed_optimizer = False,
-                 lr_decay = True):
+                 lr_decay = True,
+                 lr_low = float(1e-12)):
         """Constructor of PPO
 
         Args:
@@ -93,23 +94,26 @@ class PPO:
         self.distributed_buffer = distributed_buffer
         self.distributed_learning = distributed_learning
         self.distributed_optimizer = distributed_optimizer
+        self.lr_critic = lr_critic 
         self.lr_decay = lr_decay
+        self.lr_low = lr_low
+        self.lr_diff = self.lr_low - self.cri
         self.device = device
+        self.opt = optimizer
+        self.max_step = 0
         
         if self.exp_mem_replay:
-            self.buffer = PPORolloutBuffer(device = self.device, capacity=exp_mem_cap)
+            self.buffer = PPORolloutBuffer(device = self.device, capacity = exp_mem_cap)
         else:
             self.buffer = RolloutBuffer()
 
         self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
 
-        self.actor_opt = opt_mapping[optimizer](self.policy.actor.parameters(), lr = lr_actor)
-        self.critic_opt = opt_mapping[optimizer](self.policy.critic.parameters(), lr = lr_critic)
+        self.actor_opt = opt_mapping[self.opt](self.policy.actor.parameters(), lr = lr_actor)
+        self.critic_opt = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.lr_critic)
 
         self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
-
-        
 
     def log_init(self):
         return {
@@ -117,7 +121,6 @@ class PPO:
             "actor_loss" : [],
             "critic_loss" : []
         }
-    
     
     def select_action(self, obs: torch.Tensor):
         raise DeprecationWarning
@@ -203,9 +206,6 @@ class PPO:
                 self._non_distributed_update()
         else:
             self._simple_update()
-    
-    def _show_info(self):
-        print(f"\nPPO Update for agent {self.agent_name}")      
     
     def _non_distributed_update(self):
         self._show_info()
@@ -419,6 +419,20 @@ class PPO:
         # clear buffer
         self.buffer.clear()
 
+    def update_lr(self, end_no_tstep, max_time_step):
+        self.max_curr_step += end_no_tstep
+        self.new_lr = (1-self.max_curr_step/(max_time_step))*self.lr_diff + self.lr_low
+
+        new_optim = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.new_lr)
+        new_optim.load_state_dict(self.policy.critic.state_dict())
+        self.critic_opt = new_optim
+    
+    def get_critic_lr(self):
+        try: 
+            return self.new_lr
+        except:
+            return None
+
     def logging(self, epoch = None, actor_loss = None, critic_loss = None):
         self.log["epoch"].append(epoch)
         self.log["actor_loss"].append(actor_loss)
@@ -465,6 +479,10 @@ class PPO:
         filename = f"ppo_{self.agent_name}"
         filpath = agent_sub_dir + f"/{filename}.pt"
         torch.save(self.policy.state_dict(), filpath)
+
+    def _show_info(self):
+        print(f"\nPPO Update for agent {self.agent_name}")  
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
