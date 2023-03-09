@@ -54,7 +54,7 @@ class TorchTensorList:
         if index == 0:
             return self.arr[: self.express_line[index]]
         else:
-            return self.arr[sum(self.express_line[:index]) : sum(self.express_line[:index+1]), :]
+            return self.arr[sum(self.express_line[:index]) : sum(self.express_line[:index+1])]
     
     def append(self, x:torch.Tensor):
         self._check_input(x)
