@@ -422,6 +422,14 @@ class Training:
                 agent : 0 for agent in self.agent_names
             }
 
+            if self.exp_mem:
+                obs_lst = []
+                act_lst = {agent : [] for agent in self.agent_names}
+                log_prob_lst = {agent : [] for agent in self.agent_names}
+                rew_lst = {agent : [] for agent in self.agent_names}
+                obs_val_lst = {agent : [] for agent in self.agent_names}
+                term_lst = {agent : [] for agent in self.agent_names}
+
             with torch.no_grad():
 
                 next_obs = self.output_env.reset(seed=None)
@@ -485,13 +493,30 @@ class Training:
                     for agent in self.agent_names:
                         reward_log[agent].append(rewards[agent])
                     
-                    for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
-                                                                    act = actions_buffer[agent], 
-                                                                    log_probs = log_probs_buffer[agent],
-                                                                    rew = rewards[agent],
-                                                                    obs_val = obs_values_buffer[agent],
-                                                                    term = terms[agent])
+                    if not self.exp_mem:
+                        for agent in self.agent_names:
+                            self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
+                                                                        act = actions_buffer[agent], 
+                                                                        log_probs = log_probs_buffer[agent],
+                                                                        rew = rewards[agent],
+                                                                        obs_val = obs_values_buffer[agent],
+                                                                        term = terms[agent])
+                    else:
+                        obs_lst.append(curr_obs[0])
+                        for agent in self.agent_names:
+                            act_lst[agent].append(actions_buffer[agent])
+                            log_prob_lst[agent].append(log_probs_buffer[agent])
+                            rew_lst[agent].append(torch.tensor(np.float32(rewards[agent])))
+                            obs_val_lst[agent].append(obs_values_buffer[agent])
+                            term_lst[agent].append(terms[agent])
+                
+                for agent in self.agent_names:
+                    self.main_algo_agents[agent].insert_buffer(obs = torch.stack(obs_lst), 
+                                                                act = torch.stack(act_lst[agent]), 
+                                                                log_probs = torch.stack(log_prob_lst[agent]),
+                                                                rew = torch.stack(rew_lst[agent]),
+                                                                obs_val = torch.stack(obs_val_lst[agent]),
+                                                                term = term_lst[agent])
                 
                 # Update no. win in episode
                 win_log["ep"].append(ep)
