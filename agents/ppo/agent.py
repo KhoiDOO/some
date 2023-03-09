@@ -62,6 +62,7 @@ class PPO:
                  backbone:str = "siamese", 
                  debug_mode = None,
                  exp_mem_replay = False,
+                 exp_mem_cap = 5,
                  distributed_buffer = False,
                  distributed_learning = False,
                  distributed_optimizer = False,
@@ -96,7 +97,7 @@ class PPO:
         self.device = device
         
         if self.exp_mem_replay:
-            self.buffer = PPORolloutBuffer(device = self.device)
+            self.buffer = PPORolloutBuffer(device = self.device, capacity=exp_mem_cap)
         else:
             self.buffer = RolloutBuffer()
 
