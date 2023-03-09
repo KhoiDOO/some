@@ -97,10 +97,10 @@ class PPO:
         self.lr_critic = lr_critic 
         self.lr_decay = lr_decay
         self.lr_low = lr_low
-        self.lr_diff = self.lr_low - self.cri
+        self.lr_diff = self.lr_critic - self.lr_low
         self.device = device
         self.opt = optimizer
-        self.max_step = 0
+        self.max_curr_step = 0
         
         if self.exp_mem_replay:
             self.buffer = PPORolloutBuffer(device = self.device, capacity = exp_mem_cap)
@@ -424,7 +424,7 @@ class PPO:
         self.new_lr = (1-self.max_curr_step/(max_time_step))*self.lr_diff + self.lr_low
 
         new_optim = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.new_lr)
-        new_optim.load_state_dict(self.policy.critic.state_dict())
+        new_optim.load_state_dict(self.critic_opt.state_dict())
         self.critic_opt = new_optim
     
     def get_critic_lr(self):
