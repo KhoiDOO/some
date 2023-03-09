@@ -67,6 +67,7 @@ class PPO:
                  distributed_learning = False,
                  distributed_optimizer = False,
                  lr_decay = True,
+                 lr_decay_mode = 2,
                  lr_low = float(1e-12)):
         """Constructor of PPO
 
@@ -95,9 +96,12 @@ class PPO:
         self.distributed_learning = distributed_learning
         self.distributed_optimizer = distributed_optimizer
         self.lr_critic = lr_critic 
+        self.lr_actor = lr_actor
         self.lr_decay = lr_decay
+        self.lr_decay_mode = lr_decay_mode
         self.lr_low = lr_low
-        self.lr_diff = self.lr_critic - self.lr_low
+        self.lr_diff_critic = self.lr_critic - self.lr_low
+        self.lr_diff_actor = self.lr_actor - self.lr_low
         self.device = device
         self.opt = optimizer
         self.max_curr_step = 0
@@ -421,17 +425,35 @@ class PPO:
 
     def update_lr(self, end_no_tstep, max_time_step):
         self.max_curr_step += end_no_tstep
-        self.new_lr = (1-self.max_curr_step/(max_time_step))*self.lr_diff + self.lr_low
 
-        new_optim = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.new_lr)
-        new_optim.load_state_dict(self.critic_opt.state_dict())
-        self.critic_opt = new_optim
+        if self.lr_decay_mode == 2:
+            self._update_lr_critic(max_time_step=max_time_step)
+            self._udpate_lr_actor(max_time_step=max_time_step)
+        elif self.lr_decay_mode == 1:
+            self._udpate_lr_actor(max_time_step=max_time_step)
+        elif self.lr_decay_mode == 0:
+            self._update_lr_critic(max_time_step=max_time_step)
+        else:
+            raise Exception(f"arg lr_decay_mode specifies which learning rate is reduced over training. \
+                            It should be 0, 1, or 2 but found {self.lr_decay_mode} instead")
+    
+    def _update_lr_critic(self, max_time_step):
+        self.lr_critic = (1-self.max_curr_step/(max_time_step))*self.lr_diff_critic + self.lr_low
+        new_optim_critic = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.lr_critic)
+        new_optim_critic.load_state_dict(self.critic_opt.state_dict())
+        self.critic_opt = new_optim_critic
+    
+    def _udpate_lr_actor(self, max_time_step):
+        self.lr_actor = (1-self.max_curr_step/(max_time_step))*self.lr_diff_actor + self.lr_low
+        new_optim_actor = opt_mapping[self.opt](self.policy.actor.parameters(), lr = self.lr_actor)
+        new_optim_actor.load_state_dict(self.actor_opt.state_dict())
+        self.critic_opt = new_optim_actor
     
     def get_critic_lr(self):
-        try: 
-            return self.new_lr
-        except:
-            return None
+        return self.lr_critic
+    
+    def get_actor_lr(self):
+        return self.lr_actor
 
     def logging(self, epoch = None, actor_loss = None, critic_loss = None):
         self.log["epoch"].append(epoch)
