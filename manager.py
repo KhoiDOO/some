@@ -91,6 +91,7 @@ class Training:
         self.dist_learn = args_dict["dist_learn"]
         self.dist_opt = args_dict["dist_opt"]
         self.lr_decay = args_dict["lr_decay"]
+        self.lr_decay_mode = args_dict["lr_decay_mode"]
         self.lr_low = args_dict["lr_low"]
 
         self.irg_in_use = args_dict["irg"]
@@ -130,6 +131,7 @@ class Training:
             distributed_learning = self.dist_learn,
             distributed_optimizer = self.dist_opt,
             lr_decay = self.lr_decay,
+            lr_decay_mode = self.lr_decay_mode,
             lr_low = self.lr_low
         ) for name in self.agent_names}
 
@@ -534,6 +536,7 @@ class Training:
                                                        max_time_step = self.episodes * self.max_cycles)
                 
                 # print(self.main_algo_agents[agent].get_critic_lr())
+                # print(self.main_algo_agents[agent].get_actor_lr())
             
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)

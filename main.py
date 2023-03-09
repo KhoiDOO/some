@@ -90,6 +90,9 @@ if __name__ == '__main__':
                         help="Gradient Storing multi GPUs")
     parser.add_argument("--lr_decay", type=bool, default=False,
                         help="Learning Rate Scheduler")
+    parser.add_argument("--lr_decay_mode", type=int, default=0,
+                        help="Learning Rate Decay Modes: 0, 1, 2. They are for \
+                            updating learning rate of critic, actor, or both, respectively")
     parser.add_argument("--lr_low", type=float, default=float(1e-12),
                         help="Lowest learning rate achieved")
 
@@ -128,8 +131,9 @@ if __name__ == '__main__':
     table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
     table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
     table.rows.append(["", "", "", "lr_decay", str(args.lr_decay), "", ""])
+    table.rows.append(["", "", "", "lr_decay_mode", str(args.lr_decay_mode), "", ""])
     table.rows.append(["", "", "", "lr_row", str(args.lr_low), "", ""])
-    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", "", ""]
+    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", "", "", ""]
     table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
     print(table)
 
