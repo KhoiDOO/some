@@ -1,18 +1,27 @@
 import os, sys
 sys.path.append(os.getcwd())
 import argparse
+
+# Buffer
 from agents.ppo.modules.buffer import RolloutBuffer, PPORolloutBuffer
 from agents.ppo.modules.backbone import *
+
+# Main
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data.distributed import DistributedSampler
 from torch.distributions.categorical import Categorical
-from torch.utils.data import DataLoader
-import torch.distributed as dist
 from random import uniform, choice
 from torch import optim
 import pandas as pd
+
+# Distributed
+from torch.utils.data.distributed import DistributedSampler
+from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed.optim import DistributedOptimizer
+import torch.distributed.autograd as dist_autograd
+import torch.distributed as dist
 
 opt_mapping = {
     "SGD" : optim.SGD,
@@ -112,12 +121,24 @@ class PPO:
             self.buffer = RolloutBuffer()
 
         self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
-
-        self.actor_opt = opt_mapping[self.opt](self.policy.actor.parameters(), lr = lr_actor)
-        self.critic_opt = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.lr_critic)
+        if self.distributed_learning:
+            self.policy = DDP(self.policy, device_ids=None)
 
         self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
+
+        if self.distributed_optimizer:
+            self.actor_opt = DistributedOptimizer(
+                optimizer_class = opt_mapping[self.opt],
+                params_rref = self.policy.actor.parameters(),
+                lr = self.lr_actor)
+            self.critic_opt = DistributedOptimizer(
+                optimizer_class = opt_mapping[self.opt],
+                params_rref = self.policy.critic.parameters(),
+                lr = self.lr_critic)
+        else:
+            self.actor_opt = opt_mapping[self.opt](self.policy.actor.parameters(), lr = lr_actor)
+            self.critic_opt = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.lr_critic)
 
     def log_init(self):
         return {
@@ -202,10 +223,10 @@ class PPO:
         print("old_rewards: {}".format(len(self.buffer.rewards)))
         print("old_is_terminals: {}".format(len(self.buffer.is_terminals)))
         
-    def update(self):
+    def update(self, world_size):
         if self.exp_mem_replay:
             if self.distributed_buffer:
-                self._distributed_update()
+                self._distributed_update(world_size=world_size)
             else:
                 self._non_distributed_update()
         else:
@@ -319,8 +340,28 @@ class PPO:
                 min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
             ))              
     
-    def _distributed_update(self):
-        raise NotImplementedError
+    def _distributed_update(self, world_size):
+    
+        # Setup Distributed Buffer
+        sampler = DistributedSampler(self.buffer, shuffle = False)
+        per_device_batch_size = self.batch_size // world_size
+        loader = DataLoader(
+            dataset = self.buffer,
+            batch_size = per_device_batch_size,
+            num_workers = 5,
+            pin_memory = True,
+            sampler = sampler,
+        )
+
+        for epoch in self.K_epochs:
+            
+            sampler.set_epoch(epoch)
+
+            for step, data in enumerate(loader, start=epoch * len(loader)):
+
+                obs_full, act_full, logprobs_full, rew_full, obs_val_full, is_term = data
+
+
     
     def _simple_update(self):
         # Log
@@ -419,7 +460,6 @@ class PPO:
                 min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
             ))
 
-
         # clear buffer
         self.buffer.clear()
 
@@ -438,16 +478,22 @@ class PPO:
                             It should be 0, 1, or 2 but found {self.lr_decay_mode} instead")
     
     def _update_lr_critic(self, max_time_step):
-        self.lr_critic = (1-self.max_curr_step/(max_time_step))*self.lr_diff_critic + self.lr_low
-        new_optim_critic = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.lr_critic)
-        new_optim_critic.load_state_dict(self.critic_opt.state_dict())
-        self.critic_opt = new_optim_critic
+        if self.distributed_optimizer:
+            raise NotImplementedError
+        else:
+            self.lr_critic = (1-self.max_curr_step/(max_time_step))*self.lr_diff_critic + self.lr_low
+            new_optim_critic = opt_mapping[self.opt](self.policy.critic.parameters(), lr = self.lr_critic)
+            new_optim_critic.load_state_dict(self.critic_opt.state_dict())
+            self.critic_opt = new_optim_critic
     
     def _udpate_lr_actor(self, max_time_step):
-        self.lr_actor = (1-self.max_curr_step/(max_time_step))*self.lr_diff_actor + self.lr_low
-        new_optim_actor = opt_mapping[self.opt](self.policy.actor.parameters(), lr = self.lr_actor)
-        new_optim_actor.load_state_dict(self.actor_opt.state_dict())
-        self.critic_opt = new_optim_actor
+        if self.distributed_optimizer:
+            raise NotImplementedError
+        else:
+            self.lr_actor = (1-self.max_curr_step/(max_time_step))*self.lr_diff_actor + self.lr_low
+            new_optim_actor = opt_mapping[self.opt](self.policy.actor.parameters(), lr = self.lr_actor)
+            new_optim_actor.load_state_dict(self.actor_opt.state_dict())
+            self.critic_opt = new_optim_actor
     
     def get_critic_lr(self):
         return self.lr_critic
