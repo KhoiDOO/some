@@ -6,19 +6,28 @@ from utils.batchify import *
 import argparse
 from datetime import datetime
 import torch
+import random
+import numpy as np
 from tqdm import trange
 import pandas as pd
 
 
 class Training:
     def __init__(self, args: argparse.PARSER) -> None:
-        self.args = args
-
+        
         # setup
-
+        self.args = args
         args_dict = vars(self.args)
 
         self.current_time = datetime.now().strftime("%m-%d-%Y-%H-%M-%S")
+
+        # seed setup
+        torch.manual_seed(0)
+        random.seed(0)
+        np.random.seed(0)
+
+        # autotune setup
+        torch.backends.cudnn.benchmark = True
 
         # device setup
         if torch.cuda.is_available():
@@ -75,13 +84,24 @@ class Training:
         self.critic_lr = args_dict["critic_lr"]
         self.optimizer = args_dict["opt"]
         self.debug_mode = args_dict["debug_mode"]
+        self.eps_clip = args_dict["eps_clip"]
+        self.exp_mem = args_dict["exp_mem"]
+        self.dist_cap = args_dict["dist_cap"]
+        self.dist_buff = args_dict["dist_buff"]
+        self.dist_learn = args_dict["dist_learn"]
+        self.dist_opt = args_dict["dist_opt"]
+        self.lr_decay = args_dict["lr_decay"]
+        self.lr_decay_mode = args_dict["lr_decay_mode"]
+        self.lr_low = args_dict["lr_low"]
 
         self.irg_in_use = args_dict["irg"]
+        self.irg_backbone = args_dict["irg_backbone"]
         self.irg_epochs = args_dict["irg_epochs"]
         self.irg_batch_size = args_dict["irg_bs"]
         self.irg_lr = args_dict["irg_lr"]
         self.irg_optimizer = args_dict["irg_opt"]
         self.irg_merge_loss = args_dict["irg_merge_loss"]
+        self.irg_round_scale = args_dict["irg_round_scale"]
 
         # Environment initialization
         self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
@@ -93,18 +113,26 @@ class Training:
 
         # Actor Critic Initialization
         self.main_algo_agents = {name: agent_mapping[self.agent_algo](
-            stack_size=self.stack_size,
-            action_dim=self.output_env.action_space(self.output_env.possible_agents[0]).n,
-            lr_actor=self.actor_lr,
-            lr_critic=self.critic_lr,
-            gamma=self.gamma,
-            K_epochs=self.epochs,
-            eps_clip=0.2,
-            device=self.train_device,
-            optimizer=self.optimizer,
-            batch_size=self.batch_size,
-            agent_name=name,
-            debug_mode = self.debug_mode
+            stack_size = self.stack_size,
+            action_dim = self.output_env.action_space(self.output_env.possible_agents[0]).n,
+            lr_actor = self.actor_lr,
+            lr_critic = self.critic_lr,
+            gamma = self.gamma,
+            K_epochs = self.epochs,
+            eps_clip = self.eps_clip,
+            device = self.train_device,
+            optimizer = self.optimizer,
+            batch_size = self.batch_size,
+            agent_name = name,
+            debug_mode = self.debug_mode,
+            exp_mem_replay = self.exp_mem,
+            exp_mem_cap = self.dist_cap,
+            distributed_buffer = self.dist_buff,
+            distributed_learning = self.dist_learn,
+            distributed_optimizer = self.dist_opt,
+            lr_decay = self.lr_decay,
+            lr_decay_mode = self.lr_decay_mode,
+            lr_low = self.lr_low
         ) for name in self.agent_names}
 
         # Environment Params Dictionary for IRG
@@ -119,17 +147,19 @@ class Training:
         # IRG initialization
         if self.irg_in_use:
             self.irg_agents = {name: agent_mapping["irg"](
-                batch_size=self.irg_batch_size,
-                lr=self.irg_lr,
-                gamma=self.gamma,
-                optimizer=self.irg_optimizer,
-                agent_name=name,
-                epochs=self.irg_epochs,
-                env_dict=self.env_irg_def,
-                train_device=self.train_device,
-                buffer_device=self.buffer_device,
+                batch_size = self.irg_batch_size,
+                lr = self.irg_lr,
+                gamma = self.gamma,
+                optimizer = self.irg_optimizer,
+                agent_name = name,
+                epochs = self.irg_epochs,
+                env_dict = self.env_irg_def,
+                train_device = self.train_device,
+                buffer_device = self.buffer_device,
                 merge_loss = self.irg_merge_loss, 
-                save_path = self.model_agent_dir
+                save_path = self.model_agent_dir,
+                backbone_scale = self.irg_backbone,
+                round_scale = self.irg_round_scale
             ) for name in self.agent_names}
 
     def train(self):
@@ -179,8 +209,7 @@ class Training:
                 self.irg_agents[agent].brain.load_state_dict(
                     torch.load(irg_weight_paths[agent], map_location=self.train_device)
                 )
-
-
+        
         for ep in trange(self.episodes):
 
             reward_log = self.main_log_init()
@@ -190,8 +219,6 @@ class Training:
             reward_win = {
                 agent : 0 for agent in self.agent_names
             }
-
-            round_cnt = 0
 
             with torch.no_grad():
 
@@ -299,23 +326,17 @@ class Training:
                     # Update buffer for algo actor critic
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
-                    print(terms[0])
-                    if terms[0] != 0:
-                        round_cnt += 1
-                        print(round_cnt)
-
+                
                 # Update no. win in episode
                 win_log["ep"].append(ep)
                 win_log["step"].append(step)
                 for agent in self.agent_names:
                     win_log[agent].append(reward_win[agent])
-
+                    
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
-                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
-                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
-
-            print(f"\nEpisode {ep} - Average step: {step / round_cnt}")
+                self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)
+                self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)
 
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)
@@ -397,7 +418,7 @@ class Training:
         if self.env_name != "pong":
             raise Exception(f"Env must be pong but found {self.env_name} instead")
         
-        for ep in trange(self.episodes):
+        for ep in range(self.episodes):
 
             reward_log = self.main_log_init()
 
@@ -408,6 +429,14 @@ class Training:
             }
 
             round_cnt = 0
+
+            if self.exp_mem:
+                obs_lst = []
+                act_lst = {agent : [] for agent in self.agent_names}
+                log_prob_lst = {agent : [] for agent in self.agent_names}
+                rew_lst = {agent : [] for agent in self.agent_names}
+                obs_val_lst = {agent : [] for agent in self.agent_names}
+                term_lst = {agent : [] for agent in self.agent_names}
 
             with torch.no_grad():
 
@@ -425,16 +454,27 @@ class Training:
                     except:
                         break # expcetion for maximum score in env
 
-                    actions = {
-                        agent: self.main_algo_agents[agent].select_action(curr_obs) for agent in self.agent_names
-                    }
+                    # Make action
+                    actions, actions_buffer, log_probs_buffer, obs_values_buffer = {}, {}, {}, {}
 
-                    next_obs, rewards, terms, truncation, _ = self.output_env.step(actions)  # Update Environment
+                    for agent in self.agent_names:
+                        curr_act, curr_logprob, curr_obs_val = self.main_algo_agents[agent].make_action(curr_obs)
+
+                        actions[agent] = curr_act.item()
+                        actions_buffer[agent] = curr_act
+                        log_probs_buffer[agent] = curr_logprob
+                        obs_values_buffer[agent] = curr_obs_val
+
+                    next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
 
                     # Update termination
                     terms = {
                         agent : True if rewards[agent] == 1 or rewards[agent] == -1 else False for agent in self.agent_names
                     } 
+
+                    # Update round
+                    if rewards["first_0"]:
+                        round_cnt += 1
 
                     # Update win                    
                     for agent_name in self.agent_names:
@@ -460,12 +500,32 @@ class Training:
                     reward_log["step"].append(step)
                     for agent in self.agent_names:
                         reward_log[agent].append(rewards[agent])
-
-                    # Update buffer for algo actor critic
-                    for agent in rewards:
-                        self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
-                    if terms[agent] != False:
-                        round_cnt += 1
+                    
+                    if not self.exp_mem:
+                        for agent in self.agent_names:
+                            self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
+                                                                        act = actions_buffer[agent], 
+                                                                        log_probs = log_probs_buffer[agent],
+                                                                        rew = rewards[agent],
+                                                                        obs_val = obs_values_buffer[agent],
+                                                                        term = terms[agent])
+                    else:
+                        obs_lst.append(curr_obs[0])
+                        for agent in self.agent_names:
+                            act_lst[agent].append(actions_buffer[agent])
+                            log_prob_lst[agent].append(log_probs_buffer[agent])
+                            rew_lst[agent].append(torch.tensor(np.float32(rewards[agent])))
+                            obs_val_lst[agent].append(obs_values_buffer[agent])
+                            term_lst[agent].append(terms[agent])
+                
+                if self.exp_mem:
+                    for agent in self.agent_names:
+                        self.main_algo_agents[agent].insert_buffer(obs = torch.stack(obs_lst), 
+                                                                    act = torch.stack(act_lst[agent]), 
+                                                                    log_probs = torch.stack(log_prob_lst[agent]),
+                                                                    rew = torch.stack(rew_lst[agent]),
+                                                                    obs_val = torch.stack(obs_val_lst[agent]),
+                                                                    term = term_lst[agent])
 
                 # Update no. win in episode
                 win_log["ep"].append(ep)
@@ -473,13 +533,19 @@ class Training:
                 for agent in self.agent_names:
                     win_log[agent].append(reward_win[agent])
 
+            print(f"Episode: {ep} | Average: {step/round_cnt} | Total: {step} | Round: {round_cnt}")
+
             for agent in self.agent_names:
                 self.main_algo_agents[agent].update()
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
 
-            print(f"\nEpisode {ep} - Round: {round_cnt} - Average step: {step / round_cnt}")
-
+                self.main_algo_agents[agent].update_lr(end_no_tstep = ep,
+                                                       max_time_step = self.episodes)
+                
+                # print(self.main_algo_agents[agent].get_critic_lr())
+                # print(self.main_algo_agents[agent].get_actor_lr())
+            
             reward_log_path = self.main_log_dir + f"/{ep}_reward_log.parquet"
             reward_log_df = pd.DataFrame(reward_log)
             reward_log_df.to_parquet(reward_log_path)

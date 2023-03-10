@@ -10,6 +10,9 @@ if __name__ == '__main__':
     print("__main__")
 
     parser = argparse.ArgumentParser()
+    # Check Mode
+    parser.add_argument("--check", type=bool, default=False, choices=[True, False],
+                        help="CLI Check")
     # Environment
     parser.add_argument("--env", type=str, default="warlords", choices=["warlords", "pong", "coop-pong"],
                         help="Environment used in training and testing")
@@ -69,10 +72,29 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--critic_lr", type=float, default=0.0005,
                         help="learning rate")
+    parser.add_argument("--eps_clip", type=float, default=0.2,
+                        help="Epsilon clip used in ppo clip gradient")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
     parser.add_argument("--debug_mode", type=int, default=None, choices=[0, 1, 2],
                         help="Debug mode")
+    parser.add_argument("--exp_mem", type=bool, default=False,
+                        help="Using experience memory replay")
+    parser.add_argument("--dist_buff", type=bool, default=False,
+                        help="Using memory distributed experience memory replay")
+    parser.add_argument("--dist_cap", type=int, default=5,
+                        help="Capacity - Number of episodes stored in dynamic Torch Tensor List")
+    parser.add_argument("--dist_learn", type=bool, default=False,
+                        help="Learning in multi GPUS")
+    parser.add_argument("--dist_opt", type=bool, default=False,
+                        help="Gradient Storing multi GPUs")
+    parser.add_argument("--lr_decay", type=bool, default=False,
+                        help="Learning Rate Scheduler")
+    parser.add_argument("--lr_decay_mode", type=int, default=0,
+                        help="Learning Rate Decay Modes: 0, 1, 2. They are for \
+                            updating learning rate of critic, actor, or both, respectively")
+    parser.add_argument("--lr_low", type=float, default=float(1e-12),
+                        help="Lowest learning rate achieved")
 
     # irg
     parser.add_argument("--irg", type=bool, default=True,
@@ -94,28 +116,34 @@ if __name__ == '__main__':
                         help="Number of number after comma in decimal")
     args = parser.parse_args()
 
-    table = BeautifulTable(maxwidth=140)
-    table.rows.append([args.env, "train_type", args.train_type, "agent", args.agent, "IRG", args.irg])
+    table = BeautifulTable(maxwidth=140, detect_numerics = False)
+    table.rows.append([args.env, "train_type", args.train_type, "agent", args.agent, "IRG", str(args.irg)])
     table.rows.append([args.stack_size, "agent_choose", args.agent_choose, "backbone", args.backbone, "irg_epochs", args.irg_epochs])
     table.rows.append([args.frame_size, "script", args.script, "epochs", args.epochs, "irg_bs", args.irg_bs])
-    table.rows.append([args.parallel, "fix_reward", args.fix_reward, "bs", args.bs, "irg_lr", args.irg_lr])
-    table.rows.append([args.color_reduction, "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
-    table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", args.irg_merge_loss])
+    table.rows.append([str(args.parallel), "fix_reward", str(args.fix_reward), "bs", args.bs, "irg_lr", args.irg_lr])
+    table.rows.append([str(args.color_reduction), "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
+    table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", str(args.irg_merge_loss)])
     table.rows.append([args.max_cycles, "", "", "opt", args.opt, "irg_backbone", args.irg_backbone])
-    table.rows.append([args.ep, "", "", "", "", "irg_round_scale", args.irg_round_scale])
-    table.rows.append([args.gamma, "", "", "", "", "", ""])
-    table.rows.append([args.view, "", "", "", "", "", ""])
-    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view"]
+    table.rows.append([args.ep, "", "", "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
+    table.rows.append([args.gamma, "", "", "exp_mem", str(args.exp_mem), "", ""])
+    table.rows.append([args.view, "", "", "dist_buff", str(args.dist_buff), "", ""])
+    table.rows.append(["", "", "", "dist_cap", args.dist_cap, "", ""])
+    table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
+    table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
+    table.rows.append(["", "", "", "lr_decay", str(args.lr_decay), "", ""])
+    table.rows.append(["", "", "", "lr_decay_mode", str(args.lr_decay_mode), "", ""])
+    table.rows.append(["", "", "", "lr_row", str(args.lr_low), "", ""])
+    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", "", "", ""]
     table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
     print(table)
 
-    if torch.cuda.device_count() == 0 or not torch.cuda.is_available():
+    if not torch.cuda.is_available():
         print()
         print("="*10, "CUDA INFO", "="*10)
         print(f"Cuda is not available on this machine")
         print("="*10, "CUDA INFO", "="*10)
         print()
-    elif args.device_index:
+    elif not args.device_index == None:
         if args.device_index > torch.cuda.device_count():
             raise Exception(f"The device chose is higher than the number of available cuda device.\
                 There are {torch.cuda.device_count()} but {args.device_index} chose instead")
@@ -128,6 +156,11 @@ if __name__ == '__main__':
             print(f"CUDA device address: {torch.cuda.device(args.device_index)}")
             print("="*10, "CUDA INFO", "="*10)
             print()
+    else:
+        print("="*10, "CUDA INFO", "="*10)
+        print("CUDA not in use")
+        print("="*10, "CUDA INFO", "="*10)
 
-    train = Training(args=args)
-    train.train()
+    if not args.check:
+        train = Training(args=args)
+        train.train()
