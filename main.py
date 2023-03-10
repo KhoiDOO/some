@@ -57,6 +57,13 @@ if __name__ == '__main__':
                         help="Device used for memory replay")
     parser.add_argument("--device_index", type=int,
                         help="CUDA index used for training")
+    parser.add_argument('--dist_ws', default=1, type=int,
+                        help='number of distributed processes')
+    parser.add_argument('--dist_rank', default=-1, type=int)
+    parser.add_argument('--dist_url', default="env://",
+                        help='url used to set up distributed training')
+    parser.add_argument('--dist_be', default="nccl", choices=["nccl"],
+                        help='The backend to use in distribution mode')
 
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
@@ -123,10 +130,10 @@ if __name__ == '__main__':
     table.rows.append([str(args.parallel), "fix_reward", str(args.fix_reward), "bs", args.bs, "irg_lr", args.irg_lr])
     table.rows.append([str(args.color_reduction), "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
     table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", str(args.irg_merge_loss)])
-    table.rows.append([args.max_cycles, "", "", "opt", args.opt, "irg_backbone", args.irg_backbone])
-    table.rows.append([args.ep, "", "", "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
-    table.rows.append([args.gamma, "", "", "exp_mem", str(args.exp_mem), "", ""])
-    table.rows.append([args.view, "", "", "dist_buff", str(args.dist_buff), "", ""])
+    table.rows.append([args.max_cycles, "dist_world_size", args.dist_ws, "opt", args.opt, "irg_backbone", args.irg_backbone])
+    table.rows.append([args.ep, "dist_rank", args.dist_rank, "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
+    table.rows.append([args.gamma, "dist_url", args.dist_url, "exp_mem", str(args.exp_mem), "", ""])
+    table.rows.append([args.view, "dist_back_end", args.dist_be, "dist_buff", str(args.dist_buff), "", ""])
     table.rows.append(["", "", "", "dist_cap", args.dist_cap, "", ""])
     table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
     table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
@@ -162,5 +169,15 @@ if __name__ == '__main__':
         print("="*10, "CUDA INFO", "="*10)
 
     if not args.check:
+
+        if args.dist_buff or args.dist_learn or args.dist_opt:
+            from utils.distributed import DistributeManager
+
+            DistributeManager(args=args)
+
+        print()
+        print("="*10, "EXPERIMENT STARTED", "="*10)
         train = Training(args=args)
         train.train()
+        print("="*10, "EXPERIMENT FINISHED", "="*10)
+        print()
