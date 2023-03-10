@@ -11,8 +11,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     # Check Mode
-    parser.add_argument("--check", type=bool, default=False, choices=[True, False],
-                        help="CLI Check")
+    parser.add_argument("--check", action='store_true',
+                        help="ARGS Check")
+    parser.add_argument("--cli", action='store_true',
+                        help="Show full CLI")
+    
     # Environment
     parser.add_argument("--env", type=str, default="warlords", choices=["warlords", "pong", "coop-pong"],
                         help="Environment used in training and testing")
@@ -168,8 +171,10 @@ if __name__ == '__main__':
         print("CUDA not in use")
         print("="*10, "CUDA INFO", "="*10)
 
-    if not args.check:
-
+    
+    if args.check:
+        pass
+    else:
         if args.dist_buff or args.dist_learn or args.dist_opt:
             from utils.distributed import DistributeManager
 
@@ -180,4 +185,14 @@ if __name__ == '__main__':
         train = Training(args=args)
         train.train()
         print("="*10, "EXPERIMENT FINISHED", "="*10)
+        print()
+
+    if args.cli:
+        print()
+        print("="*10, "CLI", "="*10)
+        print("python / torchrun main.py", end=" ")
+        for arg in vars(args):
+            print(f"--{arg} {getattr(args, arg)}", end=" ")
+        print()
+        print("="*10, "CLI", "="*10)
         print()
