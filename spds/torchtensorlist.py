@@ -74,7 +74,10 @@ class TorchTensorList:
         else:
             self.count -= 1
             self.express_line.pop()
-            self.arr = self.arr[self.express_line[0]:]
+            if self.count == 0:
+                self.arr = None
+            else:
+                self.arr = self.arr[self.express_line[0]:]
         
     def insert(self):
         raise NotImplementedError
