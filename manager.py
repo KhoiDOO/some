@@ -31,11 +31,15 @@ class Training:
 
         # device setup
         if torch.cuda.is_available():
-            self.train_device = torch.device(type = "cuda", index = args_dict["device_index"])
-            if args_dict["buffer_device"] == "cuda":
-                self.buffer_device = torch.device(type = "cuda", index = args_dict["device_index"])
+            if args_dict["dist_learn"] or args_dict["dist_buff"]:
+                self.train_device = "cuda"
+                self.buffer_device = "cuda"
             else:
-                self.buffer_device = args_dict["buffer_device"]
+                self.train_device = torch.device(type = "cuda", index = args_dict["device_index"])
+                if args_dict["buffer_device"] == "cuda":
+                    self.buffer_device = torch.device(type = "cuda", index = args_dict["device_index"])
+                else:
+                    self.buffer_device = args_dict["buffer_device"]
         else:
             self.train_device = "cpu"
             self.buffer_device = "cpu"
@@ -76,6 +80,7 @@ class Training:
         self.fix_reward = args_dict["fix_reward"]
         self.max_reward = args_dict["max_reward"]
         self.inverse_reward = args_dict["inverse_reward"]
+        self.dist_ws = args_dict["dist_ws"]
 
         self.agent_algo = args_dict["agent"]
         self.epochs = args_dict["epochs"]
@@ -86,7 +91,7 @@ class Training:
         self.debug_mode = args_dict["debug_mode"]
         self.eps_clip = args_dict["eps_clip"]
         self.exp_mem = args_dict["exp_mem"]
-        self.dist_cap = args_dict["dist_cap"]
+        self.cap = args_dict["cap"]
         self.dist_buff = args_dict["dist_buff"]
         self.dist_learn = args_dict["dist_learn"]
         self.dist_opt = args_dict["dist_opt"]
@@ -104,9 +109,12 @@ class Training:
         self.irg_round_scale = args_dict["irg_round_scale"]
 
         # Environment initialization
-        self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, frame_size=tuple(self.frame_size),
-                                                     max_cycles=self.max_cycles, render_mode=self.render_mode,
-                                                     parralel=self.parallel, color_reduc=self.color_reduction)
+        self.output_env = env_mapping[self.env_name](stack_size=self.stack_size, 
+                                                     frame_size=tuple(self.frame_size),
+                                                     max_cycles=self.max_cycles, 
+                                                     render_mode=self.render_mode,
+                                                     parralel=self.parallel, 
+                                                     color_reduc=self.color_reduction)
 
         # Agent names initialization
         self.agent_names = self.output_env.possible_agents
@@ -121,12 +129,13 @@ class Training:
             K_epochs = self.epochs,
             eps_clip = self.eps_clip,
             device = self.train_device,
+            # dist_devices = self.device_indices, 
             optimizer = self.optimizer,
             batch_size = self.batch_size,
             agent_name = name,
             debug_mode = self.debug_mode,
             exp_mem_replay = self.exp_mem,
-            exp_mem_cap = self.dist_cap,
+            exp_mem_cap = self.cap,
             distributed_buffer = self.dist_buff,
             distributed_learning = self.dist_learn,
             distributed_optimizer = self.dist_opt,
@@ -449,7 +458,8 @@ class Training:
                             self.frame_size[0],
                             self.frame_size[1]
                         )
-                    except:
+                    except Exception as e:
+                        print(e)
                         break # expcetion for maximum score in env
 
                     # Make action
@@ -496,6 +506,7 @@ class Training:
                         reward_log[agent].append(rewards[agent])
                     
                     if not self.exp_mem:
+                        print("here")
                         for agent in self.agent_names:
                             self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
                                                                         act = actions_buffer[agent], 
@@ -528,7 +539,7 @@ class Training:
                     win_log[agent].append(reward_win[agent])
 
             for agent in self.agent_names:
-                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].update(world_size = self.dist_ws)
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
 

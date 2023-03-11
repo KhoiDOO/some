@@ -27,9 +27,9 @@ if __name__ == '__main__':
                         help="Number of step in one episode")
     parser.add_argument("--frame_size", type=list, default=(64, 64),
                         help="Width and height of frame")
-    parser.add_argument("--parallel", type=bool, default=True,
+    parser.add_argument("--parallel", action='store_true',
                         help="Process the environment in multi cpu core")
-    parser.add_argument("--color_reduction", type=bool, default=True,
+    parser.add_argument("--color_reduction", action='store_true',
                         help="Reduce color to grayscale")
     parser.add_argument("--ep", type=int, default=2,
                         help="Total Episodes")
@@ -50,16 +50,17 @@ if __name__ == '__main__':
                         help="Script includes weight paths to model, only needed in experiment mode, "
                              "detail in /script folder, create your_setting.json same as sample.json "
                              "for conducting custom experiment")
-    parser.add_argument("--fix_reward", type=bool, default=False,
+    parser.add_argument("--fix_reward", action='store_true',
                         help="Make reward by step")
     parser.add_argument("--max_reward", type=int, default=100,
                         help="Max reward only use for pong-algo-only mode")
-    parser.add_argument("--inverse_reward", type=bool, default=False,
+    parser.add_argument("--inverse_reward", action='store_true',
                         help="change the sign of reward")
     parser.add_argument("--buffer_device", type=str, default="cpu",
                         help="Device used for memory replay")
-    parser.add_argument("--device_index", type=int,
-                        help="CUDA index used for training")
+    parser.add_argument("--device_index", 
+                        type=int,
+                        help="CUDA index or indices used for single training")
     parser.add_argument('--dist_ws', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_rank', default=-1, type=int)
@@ -88,17 +89,17 @@ if __name__ == '__main__':
                         help="Optimizer")
     parser.add_argument("--debug_mode", type=int, default=None, choices=[0, 1, 2],
                         help="Debug mode")
-    parser.add_argument("--exp_mem", type=bool, default=False,
+    parser.add_argument("--exp_mem", action='store_true',
                         help="Using experience memory replay")
-    parser.add_argument("--dist_buff", type=bool, default=False,
+    parser.add_argument("--dist_buff", action='store_true',
                         help="Using memory distributed experience memory replay")
     parser.add_argument("--cap", type=int, default=1,
                         help="Capacity - Number of episodes stored in dynamic Torch Tensor List")
-    parser.add_argument("--dist_learn", type=bool, default=False,
+    parser.add_argument("--dist_learn", action='store_true',
                         help="Learning in multi GPUS")
-    parser.add_argument("--dist_opt", type=bool, default=False,
+    parser.add_argument("--dist_opt", action='store_true',
                         help="Gradient Storing multi GPUs")
-    parser.add_argument("--lr_decay", type=bool, default=False,
+    parser.add_argument("--lr_decay", action='store_true',
                         help="Learning Rate Scheduler")
     parser.add_argument("--lr_decay_mode", type=int, default=0,
                         help="Learning Rate Decay Modes: 0, 1, 2. They are for \
@@ -107,7 +108,7 @@ if __name__ == '__main__':
                         help="Lowest learning rate achieved")
 
     # irg
-    parser.add_argument("--irg", type=bool, default=True,
+    parser.add_argument("--irg", action='store_true',
                         help="Partial Observation Deep Policy")
     parser.add_argument("--irg_backbone", type=str, default="small", 
                         choices=["small", "normal"],
@@ -116,7 +117,7 @@ if __name__ == '__main__':
                         help="Number of epoch for training")
     parser.add_argument("--irg_bs", type=int, default=32,
                         help="Batch size")
-    parser.add_argument("--irg_merge_loss", type=bool, default=True,
+    parser.add_argument("--irg_merge_loss", action='store_true',
                         help="Take the gradient in the total loss instead of backwarding each loss separately")
     parser.add_argument("--irg_lr", type=float, default=0.005,
                         help="learning rate")
@@ -172,8 +173,19 @@ if __name__ == '__main__':
         print("="*10, "CUDA INFO", "="*10)
 
     
-    if args.check:
-        pass
+    if args.check or args.cli:
+        if args.cli:
+            print()
+            print("="*10, "CLI", "="*10)
+            print("python / torchrun main.py", end=" ")
+            for arg in vars(args):
+                if getattr(args, arg) == True or getattr(args, arg) == False:
+                    print(f"--{arg}", end=" ")
+                else:
+                    print(f"--{arg} {getattr(args, arg)}", end=" ")
+            print()
+            print("="*10, "CLI", "="*10)
+            print()
     else:
         if args.dist_buff or args.dist_learn or args.dist_opt:
             from utils.distributed import DistributeManager
@@ -187,12 +199,4 @@ if __name__ == '__main__':
         print("="*10, "EXPERIMENT FINISHED", "="*10)
         print()
 
-    if args.cli:
-        print()
-        print("="*10, "CLI", "="*10)
-        print("python / torchrun main.py", end=" ")
-        for arg in vars(args):
-            print(f"--{arg} {getattr(args, arg)}", end=" ")
-        print()
-        print("="*10, "CLI", "="*10)
-        print()
+    

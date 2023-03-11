@@ -4,7 +4,7 @@ import torch.distributed as dist
 
 class DistributeManager:
     def __init__(self, args) -> None:
-        self._check_device_index(args.device_index)
+        # self._check_device_index(args.device_indices)
         print()
         print("="*10, "CUDA DISTRIBUTION INFO", "="*10)
         print('| distributed init (rank {}): {}, gpu {}'.format(
@@ -12,16 +12,16 @@ class DistributeManager:
         dist.init_process_group(backend=args.dist_be, init_method=args.dist_url,
                                             world_size=args.dist_ws, rank=args.dist_rank)
         dist.barrier()
-        self._setup_for_distributed(args.dist_rank == 0)
+        # self._setup_for_distributed(args.dist_rank == 0)
         print("="*10, "CUDA DISTRIBUTION INFO", "="*10)
         print()
     
     def _set_os_env_var(self, args):
         os.environ["RANK"] = args.dist_rank
     
-    def _check_device_index(self, device_index):
-        if device_index == None:
-            raise Exception("Arg --device-index cannot be None")
+    # def _check_device_index(self, device_index):
+    #     if device_index == None:
+    #         raise Exception("Arg --device-indices cannot be None")
 
 
     def _setup_for_distributed(self, is_master):
