@@ -362,10 +362,78 @@ class PPO:
 
                 obs_full, act_full, logprobs_full, rew_full, obs_val_full, is_term = data
 
-                
+                rew_norm = None
+                discount_rew = torch.tensor([0]).to(device=self.device)
+                for _rew, _term in zip(rew_full, is_term):
+                    if _term:
+                        discount_rew = torch.tensor([0]).to(device=self.device)
+                    
+                    discount_rew = _rew + (self.gamma * discount_rew)
+                    if rew_norm == None:
+                        rew_norm = discount_rew
+                    else:
+                        rew_norm = torch.cat((rew_norm, discount_rew))
 
+                for batch_idx in range(0, obs_full.shape[0], self.batch_size):
 
-    
+                    try:
+                        base_obs = obs_full[batch_idx:batch_idx + self.batch_size]
+                        base_act = act_full[batch_idx:batch_idx + self.batch_size]
+                        base_logprobs = logprobs_full[batch_idx:batch_idx + self.batch_size]
+                        base_obs_val = obs_val_full[batch_idx:batch_idx + self.batch_size]
+                        base_rew = rew_norm[batch_idx:batch_idx + self.batch_size]
+                    except:
+                        if obs_full.shape[0] - batch_idx >= 1:
+                            base_obs = obs_full[batch_idx : ]
+                            base_act = act_full[batch_idx : ]
+                            base_logprobs = logprobs_full[batch_idx : ]
+                            base_obs_val = obs_val_full[batch_idx : ]
+                            base_rew = rew_norm[batch_idx : ]
+
+                    # cal advantage
+                    advantages = base_rew - base_obs_val
+
+                    # Evaluation
+                    action_probs = self.policy.actor(base_obs/255)
+                    dist = Categorical(logits=action_probs)
+
+                    logprobs = dist.log_prob(base_act)
+                    dist_entropy = dist.entropy()
+                    obs_values = self.policy.critic(base_obs/255)
+
+                    # match obs_values tensor dimensions with rewards tensor
+                    obs_values = torch.squeeze(obs_values)
+                    
+                    # Finding the ratio (pi_theta / pi_theta__old)
+                    ratios = torch.exp(logprobs - base_logprobs)
+
+                    # Finding Surrogate Loss   
+                    obj = ratios * advantages
+                    obj_clip = torch.clamp(ratios, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * advantages
+
+                    # final loss of clipped objective PPO
+                    actor_loss = -torch.min(obj, obj_clip).mean() - 0.01 * dist_entropy.mean()
+
+                    critic_loss = 0.5 * nn.MSELoss()(obs_values, base_rew)
+
+                    # Logging
+                    self.logging(
+                        epoch=epoch, 
+                        actor_loss = actor_loss.item(), 
+                        critic_loss = critic_loss.item()
+                    )
+                            
+                    # take gradient step
+                    self.actor_opt.zero_grad()
+                    actor_loss.backward()
+                    self.actor_opt.step()
+
+                    self.critic_opt.zero_grad()
+                    critic_loss.backward()
+                    self.critic_opt.step()
+
+                    self.policy_old.load_state_dict(self.policy.state_dict())   
+
     def _simple_update(self):
         # Log
         self._show_info()
