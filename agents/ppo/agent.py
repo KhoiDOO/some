@@ -344,7 +344,8 @@ class PPO:
     
         # Setup Distributed Buffer
         sampler = DistributedSampler(self.buffer, shuffle = False)
-        per_device_batch_size = self.batch_size // world_size
+        # per_device_batch_size = self.batch_size // world_size
+        per_device_batch_size = 1
         loader = DataLoader(
             dataset = self.buffer,
             batch_size = per_device_batch_size,
@@ -361,8 +362,78 @@ class PPO:
 
                 obs_full, act_full, logprobs_full, rew_full, obs_val_full, is_term = data
 
+                rew_norm = None
+                discount_rew = torch.tensor([0]).to(device=self.device)
+                for _rew, _term in zip(rew_full, is_term):
+                    if _term:
+                        discount_rew = torch.tensor([0]).to(device=self.device)
+                    
+                    discount_rew = _rew + (self.gamma * discount_rew)
+                    if rew_norm == None:
+                        rew_norm = discount_rew
+                    else:
+                        rew_norm = torch.cat((rew_norm, discount_rew))
 
-    
+                for batch_idx in range(0, obs_full.shape[0], self.batch_size):
+
+                    try:
+                        base_obs = obs_full[batch_idx:batch_idx + self.batch_size]
+                        base_act = act_full[batch_idx:batch_idx + self.batch_size]
+                        base_logprobs = logprobs_full[batch_idx:batch_idx + self.batch_size]
+                        base_obs_val = obs_val_full[batch_idx:batch_idx + self.batch_size]
+                        base_rew = rew_norm[batch_idx:batch_idx + self.batch_size]
+                    except:
+                        if obs_full.shape[0] - batch_idx >= 1:
+                            base_obs = obs_full[batch_idx : ]
+                            base_act = act_full[batch_idx : ]
+                            base_logprobs = logprobs_full[batch_idx : ]
+                            base_obs_val = obs_val_full[batch_idx : ]
+                            base_rew = rew_norm[batch_idx : ]
+
+                    # cal advantage
+                    advantages = base_rew - base_obs_val
+
+                    # Evaluation
+                    action_probs = self.policy.actor(base_obs/255)
+                    dist = Categorical(logits=action_probs)
+
+                    logprobs = dist.log_prob(base_act)
+                    dist_entropy = dist.entropy()
+                    obs_values = self.policy.critic(base_obs/255)
+
+                    # match obs_values tensor dimensions with rewards tensor
+                    obs_values = torch.squeeze(obs_values)
+                    
+                    # Finding the ratio (pi_theta / pi_theta__old)
+                    ratios = torch.exp(logprobs - base_logprobs)
+
+                    # Finding Surrogate Loss   
+                    obj = ratios * advantages
+                    obj_clip = torch.clamp(ratios, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * advantages
+
+                    # final loss of clipped objective PPO
+                    actor_loss = -torch.min(obj, obj_clip).mean() - 0.01 * dist_entropy.mean()
+
+                    critic_loss = 0.5 * nn.MSELoss()(obs_values, base_rew)
+
+                    # Logging
+                    self.logging(
+                        epoch=epoch, 
+                        actor_loss = actor_loss.item(), 
+                        critic_loss = critic_loss.item()
+                    )
+                            
+                    # take gradient step
+                    self.actor_opt.zero_grad()
+                    actor_loss.backward()
+                    self.actor_opt.step()
+
+                    self.critic_opt.zero_grad()
+                    critic_loss.backward()
+                    self.critic_opt.step()
+
+                    self.policy_old.load_state_dict(self.policy.state_dict())   
+
     def _simple_update(self):
         # Log
         self._show_info()
@@ -453,11 +524,11 @@ class PPO:
                 print("Critic is updated")
         elif self.debug_mode == 2:
             print(f"Total step: {len(self.buffer.observations)}")
-            print("Actor Loss: min -> {0} | max -> {1} | avg -> {2}".format(
-                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"])
+            print("Actor Loss: min -> {0} | max -> {1} | avg -> {2} | lr_actor -> {3}".format(
+                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"], self.lr_actor)
             ))
-            print("Critic Loss: min -> {0} | max -> {1} | avg -> {2}".format(
-                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
+            print("Critic Loss: min -> {0} | max -> {1} | avg -> {2} | lr_critic -> {3}".format(
+                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"], self.lr_critic)
             ))
 
         # clear buffer
@@ -493,7 +564,7 @@ class PPO:
             self.lr_actor = (1-self.max_curr_step/(max_time_step))*self.lr_diff_actor + self.lr_low
             new_optim_actor = opt_mapping[self.opt](self.policy.actor.parameters(), lr = self.lr_actor)
             new_optim_actor.load_state_dict(self.actor_opt.state_dict())
-            self.critic_opt = new_optim_actor
+            self.actor_opt = new_optim_actor
     
     def get_critic_lr(self):
         return self.lr_critic
