@@ -92,7 +92,7 @@ if __name__ == '__main__':
                         help="Using experience memory replay")
     parser.add_argument("--dist_buff", type=bool, default=False,
                         help="Using memory distributed experience memory replay")
-    parser.add_argument("--dist_cap", type=int, default=5,
+    parser.add_argument("--cap", type=int, default=1,
                         help="Capacity - Number of episodes stored in dynamic Torch Tensor List")
     parser.add_argument("--dist_learn", type=bool, default=False,
                         help="Learning in multi GPUS")
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     table.rows.append([args.ep, "dist_rank", args.dist_rank, "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
     table.rows.append([args.gamma, "dist_url", args.dist_url, "exp_mem", str(args.exp_mem), "", ""])
     table.rows.append([args.view, "dist_back_end", args.dist_be, "dist_buff", str(args.dist_buff), "", ""])
-    table.rows.append(["", "", "", "dist_cap", args.dist_cap, "", ""])
+    table.rows.append(["", "", "", "cap", args.cap, "", ""])
     table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
     table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
     table.rows.append(["", "", "", "lr_decay", str(args.lr_decay), "", ""])
