@@ -20,8 +20,8 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.optim import DistributedOptimizer
-import torch.distributed.autograd as dist_autograd
-import torch.distributed as dist
+# import torch.distributed.autograd as dist_autograd
+# import torch.distributed as dist
 
 opt_mapping = {
     "SGD" : optim.SGD,
@@ -64,7 +64,7 @@ class PPO:
                  gamma:float = 0.99, 
                  K_epochs:int = 2, 
                  eps_clip:float = 0.2, 
-                 device:str = "cuda", 
+                 device:str = "cuda",
                  optimizer:str = "Adam", 
                  batch_size:int = 16, 
                  agent_name: str = None, 
@@ -121,10 +121,17 @@ class PPO:
             self.buffer = RolloutBuffer()
 
         self.policy = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
-        if self.distributed_learning:
-            self.policy = DDP(self.policy, device_ids=None)
-
         self.policy_old = backbone_mapping[backbone](stack_size = self.stack_size, num_actions = action_dim).to(device)
+        if self.distributed_learning:
+            self.policy = DDP(
+                self.policy, 
+                # device_ids=dist_devices
+                )
+            self.policy_old = DDP(
+                self.policy_old, 
+                # device_ids=dist_devices
+            )
+        
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         if self.distributed_optimizer:
@@ -341,6 +348,8 @@ class PPO:
             ))              
     
     def _distributed_update(self, world_size):
+        # Log
+        self._show_info()
     
         # Setup Distributed Buffer
         sampler = DistributedSampler(self.buffer, shuffle = False)
@@ -349,12 +358,15 @@ class PPO:
         loader = DataLoader(
             dataset = self.buffer,
             batch_size = per_device_batch_size,
-            num_workers = 5,
+            num_workers = 1,
             pin_memory = True,
             sampler = sampler,
         )
 
-        for epoch in self.K_epochs:
+        # Tracking
+        self.log = self.log_init()
+
+        for epoch in range(self.K_epochs):
             
             sampler.set_epoch(epoch)
 
@@ -362,10 +374,12 @@ class PPO:
 
                 obs_full, act_full, logprobs_full, rew_full, obs_val_full, is_term = data
 
+                obs_full, act_full, logprobs_full, rew_full, obs_val_full = obs_full[0], act_full[0], logprobs_full[0], rew_full[0], obs_val_full[0]
+
                 rew_norm = None
                 discount_rew = torch.tensor([0]).to(device=self.device)
                 for _rew, _term in zip(rew_full, is_term):
-                    if _term:
+                    if _term.item():
                         discount_rew = torch.tensor([0]).to(device=self.device)
                     
                     discount_rew = _rew + (self.gamma * discount_rew)
@@ -433,6 +447,28 @@ class PPO:
                     self.critic_opt.step()
 
                     self.policy_old.load_state_dict(self.policy.state_dict())   
+        
+        if self.debug_mode == None:
+            pass
+        elif self.debug_mode == 0:
+            print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+        elif self.debug_mode == 1:
+            print(f"\nActor: {actor_loss.item()} - Critic: {critic_loss.item()}")
+
+            if str(self.policy.state_dict()) == str(self.policy_old.state_dict()):
+                print("Policy is updated")
+            if str(self.policy.actor.state_dict()) == str(self.policy_old.actor.state_dict()):
+                print("Actor is updated")
+            if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
+                print("Critic is updated")
+        elif self.debug_mode == 2:
+            print(f"Total step: {len(self.buffer.observations)}")
+            print("Actor Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"])
+            ))
+            print("Critic Loss: min -> {0} | max -> {1} | avg -> {2}".format(
+                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"])
+            ))
 
     def _simple_update(self):
         # Log
