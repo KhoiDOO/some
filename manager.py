@@ -334,7 +334,7 @@ class Training:
                     win_log[agent].append(reward_win[agent])
                     
             for agent in self.agent_names:
-                self.main_algo_agents[agent].update()
+                self.main_algo_agents[agent].update(ep)
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)
 

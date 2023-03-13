@@ -203,14 +203,14 @@ class PPO:
         print("old_rewards: {}".format(len(self.buffer.rewards)))
         print("old_is_terminals: {}".format(len(self.buffer.is_terminals)))
         
-    def update(self):
+    def update(self, ep):
         if self.exp_mem_replay:
             if self.distributed_buffer:
                 self._distributed_update()
             else:
                 self._non_distributed_update()
         else:
-            self._simple_update()
+            self._simple_update(ep)
     
     def _non_distributed_update(self):
         self._show_info()
@@ -323,7 +323,7 @@ class PPO:
     def _distributed_update(self):
         raise NotImplementedError
     
-    def _simple_update(self):
+    def _simple_update(self, ep):
         # Log
         self._show_info()
 
@@ -356,11 +356,12 @@ class PPO:
 
                 # cal advantage
                 advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
-                print("="*8)
-                print(reward_batch[idx])
-                print("-"*8)
-                print(advantages)
-                print("="*8)
+                if ep > 500:
+                    print("="*8)
+                    print(reward_batch[idx])
+                    print("-"*8)
+                    print(advantages)
+                    print("="*8)
                 # Evaluation
                 action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
                 dist = Categorical(logits=action_probs)
