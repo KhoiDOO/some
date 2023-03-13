@@ -129,7 +129,7 @@ class Training:
             K_epochs = self.epochs,
             eps_clip = self.eps_clip,
             device = self.train_device,
-            # dist_devices = self.device_indices, 
+            ex_date = self.current_time,
             optimizer = self.optimizer,
             batch_size = self.batch_size,
             agent_name = name,
@@ -506,7 +506,6 @@ class Training:
                         reward_log[agent].append(rewards[agent])
                     
                     if not self.exp_mem:
-                        print("here")
                         for agent in self.agent_names:
                             self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
                                                                         act = actions_buffer[agent], 
@@ -543,7 +542,8 @@ class Training:
                 self.main_algo_agents[agent].export_log(rdir=self.log_agent_dir, ep=ep)  # Save main algo log
                 self.main_algo_agents[agent].model_export(rdir=self.model_agent_dir)  # Save main algo model
 
-                self.main_algo_agents[agent].update_lr(end_no_tstep = step,
+                if self.lr_decay:
+                    self.main_algo_agents[agent].update_lr(end_no_tstep = step,
                                                        max_time_step = self.episodes * self.max_cycles)
                 
                 # print(self.main_algo_agents[agent].get_critic_lr())
