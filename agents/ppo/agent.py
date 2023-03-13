@@ -356,11 +356,11 @@ class PPO:
 
                 # cal advantage
                 advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
-                print("=*8")
+                print("="*8)
                 print(reward_batch[idx])
-                print("-*8")
+                print("-"*8)
                 print(advantages)
-                print("=*8")
+                print("="*8)
                 # Evaluation
                 action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
                 dist = Categorical(logits=action_probs)
