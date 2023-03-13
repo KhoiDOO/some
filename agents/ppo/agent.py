@@ -1,6 +1,7 @@
 import os, sys
 sys.path.append(os.getcwd())
 import argparse
+import json
 
 # Buffer
 from agents.ppo.modules.buffer import RolloutBuffer, PPORolloutBuffer
@@ -77,7 +78,8 @@ class PPO:
                  distributed_optimizer = False,
                  lr_decay = True,
                  lr_decay_mode = 2,
-                 lr_low = float(1e-12)):
+                 lr_low = float(1e-12),
+                 ex_date:str = None):
         """Constructor of PPO
 
         Args:
@@ -113,6 +115,7 @@ class PPO:
         self.lr_diff_actor = self.lr_actor - self.lr_low
         self.device = device
         self.opt = optimizer
+        self.ex_date = ex_date
         self.max_curr_step = 0
         
         if self.exp_mem_replay:
@@ -495,14 +498,20 @@ class PPO:
         # Tracking
         self.log = self.log_init()
 
+        js_dict = {}
+
         # Optimize policy for K epochs
         for e in range(self.K_epochs):
+
+            js_dict[f"ep_{e}"] = {}
 
             # Loop through batch
             for idx in range(len(obs_batch)):
 
                 # cal advantage
                 advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
+
+                js_dict[f"ep_{e}"][f"batch_{idx}"] = advantages.tolist()
 
                 # Evaluation
                 action_probs = self.policy.actor(obs_batch[idx].to(self.device)/255)
@@ -544,7 +553,17 @@ class PPO:
                 self.critic_opt.step()
 
                 self.policy_old.load_state_dict(self.policy.state_dict())
+        
+        js_log_path = os.getcwd() + f"/run/train/{self.ex_date}/log/ppo_{self.agent_name}_adv_log.json"
+        f = open(js_log_path, "w")
+        f.write(json.dumps(js_dict))
             
+        self._debug(actor_loss=actor_loss, critic_loss=critic_loss)
+
+        # clear buffer
+        self.buffer.clear()
+    
+    def _debug(self, actor_loss, critic_loss):
         if self.debug_mode == None:
             pass
         elif self.debug_mode == 0:
@@ -559,16 +578,19 @@ class PPO:
             if str(self.policy.critic.state_dict()) == str(self.policy_old.critic.state_dict()):
                 print("Critic is updated")
         elif self.debug_mode == 2:
-            print(f"Total step: {len(self.buffer.observations)}")
+            round = 0
+            for r in self.buffer.rewards:
+                round += 1 if r == 1 or r == -1 else 0
+            if round == 0:
+                 print(f"Total step: {len(self.buffer.observations)} - Avg step: 0")
+            else:
+                print(f"Total step: {len(self.buffer.observations)} - Avg step: {len(self.buffer.observations)/round}")
             print("Actor Loss: min -> {0} | max -> {1} | avg -> {2} | lr_actor -> {3}".format(
-                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"], self.lr_actor)
-            ))
+                min(self.log["actor_loss"]), max(self.log["actor_loss"]), sum(self.log["actor_loss"])/len(self.log["actor_loss"]), self.lr_actor)
+            )
             print("Critic Loss: min -> {0} | max -> {1} | avg -> {2} | lr_critic -> {3}".format(
-                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"], self.lr_critic)
-            ))
-
-        # clear buffer
-        self.buffer.clear()
+                min(self.log["critic_loss"]), max(self.log["critic_loss"]), sum(self.log["critic_loss"])/len(self.log["critic_loss"]), self.lr_critic)
+            )
 
     def update_lr(self, end_no_tstep, max_time_step):
         self.max_curr_step += end_no_tstep
