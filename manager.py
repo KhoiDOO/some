@@ -487,12 +487,15 @@ class Training:
                             rewards[agent] = 0 - rewards[agent]
 
                     # Fix reward
-                    if self.fix_reward:                        
+                    if self.fix_reward == "lose penalty":                        
                         for agent in self.agent_names:
                             if rewards[agent] == 1:
                                 rewards[agent] = 0
                             else:
                                 pass
+                    elif self.fix_reward == "step reward":
+                        # for agent in self.agent_names:
+                        pass
                     
                     reward_log["ep"].append(ep)
                     reward_log["step"].append(step)
