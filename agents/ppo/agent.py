@@ -357,9 +357,11 @@ class PPO:
                 # cal advantage
                 advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
                 if ep > 200:
-                    print("="*8)
+                    print("====Rewards=====")
                     print(reward_batch[idx])
-                    print("-"*8)
+                    print("=====Critic Value=====")
+                    print(obs_values_batch[idx])
+                    print("=====Advantages=====")
                     print(advantages)
                     print("="*8)
                 # Evaluation
