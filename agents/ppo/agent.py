@@ -391,7 +391,7 @@ class PPO:
                     print("=====Objective=====")
                     print(obj)
                     print("=====Objective Clip=====")
-                    print(obj_clipj)
+                    print(obj_clip)
                 # Logging
                 self.logging(
                     epoch=e, 
