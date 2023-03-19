@@ -387,6 +387,11 @@ class PPO:
 
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
+                if ep>200:
+                    print("=====Objective=====")
+                    print(obj)
+                    print("=====Objective Clip=====")
+                    print(obj_clipj)
                 # Logging
                 self.logging(
                     epoch=e, 
