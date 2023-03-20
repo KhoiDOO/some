@@ -356,7 +356,7 @@ class PPO:
 
                 # cal advantage
                 advantages = reward_batch[idx].to(self.device) - obs_values_batch[idx].to(self.device)
-                if ep > 200:
+                if ep>200 and ep%50==0:
                     print("====Rewards=====")
                     print(reward_batch[idx])
                     print("=====Critic Value=====")
@@ -387,7 +387,7 @@ class PPO:
 
                 critic_loss = 0.5 * nn.MSELoss()(obs_values, reward_batch[idx].to(self.device))
 
-                if ep>200:
+                if ep>200 and ep%50==0:
                     print("=====Objective=====")
                     print(obj)
                     print("=====Objective Clip=====")
