@@ -8,12 +8,12 @@ from spds.torchtensorlist import TorchTensorList
 
 class Buffer:
     def __init__(self) -> None:
-        self.actions = None
-        self.observations = None
-        self.logprobs = None
-        self.rewards = None
-        self.obs_values = None
-        self.is_terminals = None
+        self.rb_actions = None
+        self.rb_obs = None
+        self.rb_logprobs = None
+        self.rb_rewards = None
+        self.rb_values = None
+        self.rb_terms = None
     
     def clear(self):
         raise NotImplementedError
@@ -22,20 +22,20 @@ class Buffer:
 class RolloutBuffer(Buffer):
     def __init__(self) -> None:
         super().__init__()
-        self.actions = []
-        self.observations = []
-        self.logprobs = []
-        self.rewards = []
-        self.obs_values = []
-        self.is_terminals = []
+        self.rb_actions = []
+        self.rb_obs = []
+        self.rb_logprobs = []
+        self.rb_rewards = []
+        self.rb_values = []
+        self.rb_terms = []
     
     def clear(self):
-        del self.actions[:]
-        del self.observations[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.obs_values[:]
-        del self.is_terminals[:]
+        del self.rb_actions[:]
+        del self.rb_obs[:]
+        del self.rb_logprobs[:]
+        del self.rb_rewards[:]
+        del self.rb_values[:]
+        del self.rb_terms[:]
 
 
 class PPORolloutBuffer(Buffer, Dataset):
@@ -47,26 +47,26 @@ class PPORolloutBuffer(Buffer, Dataset):
         else:
             self.device = "cpu"
 
-        self.actions = TorchTensorList(device=self.device)
-        self.observations = TorchTensorList(device=self.device)
-        self.logprobs = TorchTensorList(device=self.device)
-        self.rewards = TorchTensorList(device=self.device)
-        self.obs_values = TorchTensorList(device=self.device)
-        self.is_terminals = []
+        self.rb_actions = TorchTensorList(device=self.device)
+        self.rb_obs = TorchTensorList(device=self.device)
+        self.rb_logprobs = TorchTensorList(device=self.device)
+        self.rb_rewards = TorchTensorList(device=self.device)
+        self.rb_values = TorchTensorList(device=self.device)
+        self.rb_terms = []
 
         self.count = 0
         self.capacity = capacity    
 
     def __len__(self):
-        return len(self.observations)
+        return len(self.rb_obs)
     
     def __getitem__(self, idx):
-        return (self.observations[idx], 
-                self.actions[idx],
-                self.logprobs[idx],
-                self.rewards[idx],
-                self.obs_values[idx],
-                self.is_terminals[idx])
+        return (self.rb_obs[idx], 
+                self.rb_actions[idx],
+                self.rb_logprobs[idx],
+                self.rb_rewards[idx],
+                self.rb_values[idx],
+                self.rb_terms[idx])
     
     def append(self, 
                obs: torch.Tensor, 
@@ -78,31 +78,31 @@ class PPORolloutBuffer(Buffer, Dataset):
         
         if self.count < self.capacity:
             self.count += 1
-            self.observations.append(obs)
-            self.actions.append(act)
-            self.logprobs.append(log_probs)
-            self.rewards.append(rew)
-            self.obs_values.append(obs_val)
-            self.is_terminals.append(term)
+            self.rb_obs.append(obs)
+            self.rb_actions.append(act)
+            self.rb_logprobs.append(log_probs)
+            self.rb_rewards.append(rew)
+            self.rb_values.append(obs_val)
+            self.rb_terms.append(term)
         else:
-            self.observations.pop()
-            self.actions.pop()
-            self.logprobs.pop()
-            self.rewards.pop()
-            self.obs_values.pop()
-            self.is_terminals.pop()
+            self.rb_obs.pop()
+            self.rb_actions.pop()
+            self.rb_logprobs.pop()
+            self.rb_rewards.pop()
+            self.rb_values.pop()
+            self.rb_terms.pop()
 
-            self.observations.append(obs)
-            self.actions.append(act)
-            self.logprobs.append(log_probs)
-            self.rewards.append(rew)
-            self.obs_values.append(obs_val)
-            self.is_terminals.append(term)
+            self.rb_obs.append(obs)
+            self.rb_actions.append(act)
+            self.rb_logprobs.append(log_probs)
+            self.rb_rewards.append(rew)
+            self.rb_values.append(obs_val)
+            self.rb_terms.append(term)
     
     def clear(self):
-        del self.actions[:]
-        del self.observations[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.obs_values[:]
-        del self.is_terminals[:]
+        del self.rb_actions[:]
+        del self.rb_obs[:]
+        del self.rb_logprobs[:]
+        del self.rb_rewards[:]
+        del self.rb_values[:]
+        del self.rb_terms[:]

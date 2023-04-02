@@ -40,16 +40,34 @@ cd content/path/to/folder/some
 !AutoROM --accept-license
 ```
 
-# Training helpdesk
+# Training
+## Training helpdesk
 ```
 cd content/path/to/folder/some
-python main.py --help
+python main.py --help -h
+```
+### Training Parameter Check
+```
+python main.py --check
 ```
 
-# Training 
+### Training CLI Check
+```
+python main.py --cli
+```
+
+## Single GPU Training 
 ```
 cd content/path/to/folder/some
-python main.py --env "warlords" --render_mode rgb_array --stack_size 4 --max_cycles 124 --parallel True --color_reduction True --ep 10000 --gamma 0.99 --view 1 --train_type dual_experiment --agent_choose "first_0" --script 20623 --agent ppo --epochs 50 --bs 4 --actor_lr 0.001 --critic_lr 0.0005 --opt Adam --dume True --dume_epochs 50 --dume_bs 4 --dume_lr 0.005 --dume_opt Adam
+
+python main.py --env warlords --render_mode None --stack_size 4 --max_cycles 124 --frame_size (64, 64) --parallel True --color_reduction True --ep 2 --gamma 0.99 --view 1 --train_type train-irg-only --agent_choose first_0 --script None --fix_reward False --max_reward 100 --inverse_reward False --buffer_device cpu --device_index None --dist_ws 1 --dist_rank -1 --dist_url env:// --dist_be nccl --agent ppo --backbone siamese --epochs 1 --bs 20 --actor_lr 0.001 --critic_lr 0.0005 --eps_clip 0.2 --opt Adam --debug_mode None --exp_mem False --dist_buff False --dist_cap 5 --dist_learn False --dist_opt False --lr_decay False --lr_decay_mode 0 --lr_low 1e-12 --irg True --irg_backbone small --irg_epochs 1 --irg_bs 32 --irg_merge_loss True --irg_lr 0.005 --irg_opt Adam --irg_round_scale 2
+```
+
+## Distributed Training
+```
+cd content/path/to/folder/some
+
+torchrun main.py --env warlords --render_mode None --stack_size 4 --max_cycles 124 --frame_size (64, 64) --parallel True --color_reduction True --ep 2 --gamma 0.99 --view 1 --train_type train-irg-only --agent_choose first_0 --script None --fix_reward False --max_reward 100 --inverse_reward False --buffer_device cpu --device_index None --dist_ws 1 --dist_rank -1 --dist_url env:// --dist_be nccl --agent ppo --backbone siamese --epochs 1 --bs 20 --actor_lr 0.001 --critic_lr 0.0005 --eps_clip 0.2 --opt Adam --debug_mode None --exp_mem False --dist_buff False --dist_cap 5 --dist_learn False --dist_opt False --lr_decay False --lr_decay_mode 0 --lr_low 1e-12 --irg True --irg_backbone small --irg_epochs 1 --irg_bs 32 --irg_merge_loss True --irg_lr 0.005 --irg_opt Adam --irg_round_scale 2
 ```
 
 # Citation

@@ -136,20 +136,19 @@ class ActorCriticMultiHeadSmall(ACMultiHead):
         super().__init__()
 
         self.network = nn.Sequential(
-            nn.Conv2d(stack_size, 32, 8, stride=4),
-            # 1 * 32 * 15 * 15
+            nn.Conv2d(stack_size, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(),
-            nn.Conv2d(32, 64, 4, stride=2),
-            # 1 * 64 * 6 * 6
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
             nn.ReLU(),
-            nn.Conv2d(64, 64, 3, stride=1),
-            # 1 * 64 * 4 * 4
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(64 * 4 * 4, 512),
             nn.ReLU(),
+            nn.Linear(64*7*7, 512),
+            # nn.ReLu(),
+            # nn.Linear(2048,512),
+            # nn.ReLU(),   
         )
-        self.actor = nn.Sequential(
-            layer_init(nn.Linear(512, num_actions))
-        )
-        self.critic = layer_init(nn.Linear(512, 1))
+        
+        self.actor = self._layer_init(layer = nn.Linear(512, num_actions), std=0.01, bias_const=0.0)
+        self.critic = self._layer_init(layer = nn.Linear(512, 1), std = np.sqrt(2), bias_const=0.0)
