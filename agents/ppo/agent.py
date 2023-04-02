@@ -195,7 +195,7 @@ class PPO:
 
     def update_lr(self, current_step, max_time_step):
         self.lr = (1-(current_step/max_time_step))*self.lr_diff + self.lr_low
-        new_optim = opt_mapping[self.opt_tr](self.policy.parameters(), lr = self.lr)
+        new_optim = opt_mapping[self.args.opt](self.policy.parameters(), lr = self.lr)
         new_optim.load_state_dict(self.optimizer.state_dict())
         self.optimizer = new_optim
     
