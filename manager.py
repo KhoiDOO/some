@@ -436,6 +436,11 @@ class Training:
             if step == train_count * self.args.step:
                 for agent in self.agent_names:
                     self.main_algo_agents[agent].update()
+                    
+                    if self.args.lr_decay:
+                        self.main_algo_agents[agent].update_lr(step, self.args.total_steps)
+                    if self.args.clip_decay:
+                        self.main_algo_agents[agent].update_clip(step, self.args.total_steps)
                 
                 train_count += 1
             
@@ -451,9 +456,3 @@ class Training:
             win_log["step"].append(step)
             for agent in self.agent_names:
                 win_log[agent].append(reward_win[agent])
-
-
-            if self.args.lr_decay:
-                agent.update_lr(step, args.total_step)
-            if self.args.clip_decay:
-                agent.update_clip(step, args.total_step)
