@@ -15,9 +15,11 @@ if __name__ == '__main__':
                         help="ARGS Check")
     parser.add_argument("--cli", action='store_true',
                         help="Show full CLI")
+    parser.add_argument("--seed", type=int, default=1,
+        help="seed of the experiment")
     
     # Environment
-    parser.add_argument("--env", type=str, default="warlords", choices=["warlords", "pong", "coop-pong"],
+    parser.add_argument("--env", type=str, default="pong", choices=["pong"],
                         help="Environment used in training and testing")
     parser.add_argument("--render_mode", type=str, default=None, choices=["rgb_array", "human"],
                         help="Mode of rendering")
@@ -25,23 +27,20 @@ if __name__ == '__main__':
                         help="Number of stacking frames")
     parser.add_argument("--max_cycles", type=int, default=124,
                         help="Number of step in one episode")
-    parser.add_argument("--frame_size", type=list, default=(64, 64),
+    parser.add_argument("--frame_size", type=list, default=[84, 84],
                         help="Width and height of frame")
     parser.add_argument("--parallel", action='store_true',
                         help="Process the environment in multi cpu core")
     parser.add_argument("--color_reduction", action='store_true',
                         help="Reduce color to grayscale")
-    parser.add_argument("--ep", type=int, default=2,
-                        help="Total Episodes")
-    parser.add_argument("--gamma", type=float, default=0.99,
-                        help="Discount factor")
+    parser.add_argument("--total_steps", type=int, default=1000,
+                        help="Total Steps")
     parser.add_argument("--view", type=float, default=1,
                         help="Area scale of partial observation varies in range of (0, 2)]")
 
     # Training
-    parser.add_argument("--train_type", type=str, default="train-irg-only",
-                        choices=["train-irg-only", "train-parallel", "train-algo-only", "experiment-dual",
-                                 "experiment-algo", "pong-algo-only", "pong-irg-only", "pong-irg-algo"],
+    parser.add_argument("--train_type", type=str, default="pong-algo-only",
+                        choices=["pong-algo-only", "pong-irg-only", "pong-irg-algo"],
                         help="Type of training")
     parser.add_argument("--agent_choose", type=str, default="first_0",
                         choices=["first_0", "second_0", "third_0", "fourth_0", "paddle_0", "paddle_1"],
@@ -61,51 +60,40 @@ if __name__ == '__main__':
     parser.add_argument("--device_index", 
                         type=int,
                         help="CUDA index or indices used for single training")
-    parser.add_argument('--dist_ws', default=1, type=int,
-                        help='number of distributed processes')
-    parser.add_argument('--dist_rank', default=-1, type=int)
-    parser.add_argument('--dist_url', default="env://",
-                        help='url used to set up distributed training')
-    parser.add_argument('--dist_be', default="nccl", choices=["nccl"],
-                        help='The backend to use in distribution mode')
 
     # Agent
     parser.add_argument("--agent", type=str, default="ppo", choices=["ppo"],
                         help="Deep policy model architecture")
-    parser.add_argument("--backbone", type=str, default="siamese", choices=[
-        "siamese", "siamese-small", "siamese-nano", "multi-head", "multi-head-small"],
+    parser.add_argument("--backbone", type=str, default="multi-head-small", choices=["multi-head-small"],
                         help="PPO Backbone")
     parser.add_argument("--epochs", type=int, default=1,
                         help="Number of epoch for training")
     parser.add_argument("--bs", type=int, default=20,
                         help="Batch size")
-    parser.add_argument("--actor_lr", type=float, default=0.001,
+    parser.add_argument("--lr", type=float, default=0.00025,
                         help="learning rate")
-    parser.add_argument("--critic_lr", type=float, default=0.0005,
-                        help="learning rate")
-    parser.add_argument("--eps_clip", type=float, default=0.2,
-                        help="Epsilon clip used in ppo clip gradient")
+    parser.add_argument("--gamma", type=float, default=0.99,
+                        help="Discount factor")
+    parser.add_argument("--gae", type=float, default=0.95,
+                        help="lambda factor")
+    parser.add_argument("--ent_coef", type=float, default=0.1,
+                        help="Entropy clip value")
+    parser.add_argument("--vf_coef", type=float, default=0.1,
+                        help="Entropy clip value")
+    parser.add_argument("--clip_coef", type=float, default=0.1,
+                        help="Entropy clip value")
     parser.add_argument("--opt", type=str, default="Adam",
                         help="Optimizer")
-    parser.add_argument("--debug_mode", type=int, default=None, choices=[0, 1, 2],
+    parser.add_argument("--debug", action = "store_true",
                         help="Debug mode")
-    parser.add_argument("--exp_mem", action='store_true',
-                        help="Using experience memory replay")
-    parser.add_argument("--dist_buff", action='store_true',
-                        help="Using memory distributed experience memory replay")
-    parser.add_argument("--cap", type=int, default=1,
-                        help="Capacity - Number of episodes stored in dynamic Torch Tensor List")
-    parser.add_argument("--dist_learn", action='store_true',
-                        help="Learning in multi GPUS")
-    parser.add_argument("--dist_opt", action='store_true',
-                        help="Gradient Storing multi GPUs")
     parser.add_argument("--lr_decay", action='store_true',
                         help="Learning Rate Scheduler")
-    parser.add_argument("--lr_decay_mode", type=int, default=0,
-                        help="Learning Rate Decay Modes: 0, 1, 2. They are for \
-                            updating learning rate of critic, actor, or both, respectively")
     parser.add_argument("--lr_low", type=float, default=float(1e-12),
                         help="Lowest learning rate achieved")
+    parser.add_argument("--clip_decay", action='store_true',
+                        help="Clip Decaying Scheduler")
+    parser.add_argument("--clip_low", type=float, default=0.05,
+                        help="Lowest clip range")
 
     # irg
     parser.add_argument("--irg", action='store_true',
@@ -132,19 +120,18 @@ if __name__ == '__main__':
     table.rows.append([args.stack_size, "agent_choose", args.agent_choose, "backbone", args.backbone, "irg_epochs", args.irg_epochs])
     table.rows.append([args.frame_size, "script", args.script, "epochs", args.epochs, "irg_bs", args.irg_bs])
     table.rows.append([str(args.parallel), "fix_reward", str(args.fix_reward), "bs", args.bs, "irg_lr", args.irg_lr])
-    table.rows.append([str(args.color_reduction), "buffer_device", args.buffer_device, "actor_lr", args.actor_lr, "irg_opt", args.irg_opt])
-    table.rows.append([args.render_mode, "device_index", args.device_index, "critic_lr", args.critic_lr, "irg_merge_loss", str(args.irg_merge_loss)])
-    table.rows.append([args.max_cycles, "dist_world_size", args.dist_ws, "opt", args.opt, "irg_backbone", args.irg_backbone])
-    table.rows.append([args.ep, "dist_rank", args.dist_rank, "eps_clip", args.eps_clip, "irg_round_scale", args.irg_round_scale])
-    table.rows.append([args.gamma, "dist_url", args.dist_url, "exp_mem", str(args.exp_mem), "", ""])
-    table.rows.append([args.view, "dist_back_end", args.dist_be, "dist_buff", str(args.dist_buff), "", ""])
-    table.rows.append(["", "", "", "cap", args.cap, "", ""])
-    table.rows.append(["", "", "", "dist_learn", str(args.dist_learn), "", ""])
-    table.rows.append(["", "", "", "dist_opt", str(args.dist_opt), "", ""])
-    table.rows.append(["", "", "", "lr_decay", str(args.lr_decay), "", ""])
-    table.rows.append(["", "", "", "lr_decay_mode", str(args.lr_decay_mode), "", ""])
-    table.rows.append(["", "", "", "lr_row", str(args.lr_low), "", ""])
-    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "gamma", "view", "", "", "", "", "", ""]
+    table.rows.append([str(args.color_reduction), "buffer_device", args.buffer_device, "lr", args.lr, "irg_opt", args.irg_opt])
+    table.rows.append([args.render_mode, "device_index", args.device_index, "lr_low", args.lr_low, "irg_merge_loss", str(args.irg_merge_loss)])
+    table.rows.append([args.max_cycles, "", "", "opt", args.opt, "irg_backbone", args.irg_backbone])
+    table.rows.append([args.total_steps, "", "", "gamma", args.gamma, "irg_round_scale", args.irg_round_scale])
+    table.rows.append([args.view, "", "", "gae", args.gae, "", ""])
+    table.rows.append([args.seed, "", "", "clip_coef", args.clip_coef, "", ""])
+    table.rows.append(["", "", "", "vf_coef", args.vf_coef, "", ""])
+    table.rows.append(["", "", "", "lr_decay", args.lr_decay, "", ""])
+    table.rows.append(["", "", "", "debug", str(args.debug), "", ""])
+    table.rows.append(["", "", "", "clip_decay", args.clip_decay, "", ""])
+    table.rows.append(["", "", "", "clip_low", args.clip_low, "", ""])
+    table.rows.header = ["env", "stack_size", "frame_size", "parallel", "color_reduc", "render_mode", "max_cycles", "ep", "view", "seed", "", "", "", "", ""]
     table.columns.header = ["ENV INFO", "", "TRAIN INFO", "", "AGENT INFO", "", "IRG INFO"]
     print(table)
 
@@ -186,17 +173,6 @@ if __name__ == '__main__':
             print()
             print("="*10, "CLI", "="*10)
             print()
-    else:
-        if args.dist_buff or args.dist_learn or args.dist_opt:
-            from utils.distributed import DistributeManager
-
-            DistributeManager(args=args)
-
-        print()
-        print("="*10, "EXPERIMENT STARTED", "="*10)
-        train = Training(args=args)
-        train.train()
-        print("="*10, "EXPERIMENT FINISHED", "="*10)
-        print()
-
-    
+            
+    train = Training(args=args)
+    train.train()
