@@ -360,10 +360,6 @@ class Training:
             agent : 0 for agent in self.agent_names
         }
         
-        round = {
-            agent : 0 for agent in self.agent_names
-        }
-        
         train_count = 1
         
         for step in trange(self.args.total_steps):
@@ -411,10 +407,8 @@ class Training:
 
             next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
             
-            # Update termination
-            terms = {
-                agent : True if rewards[agent] == 1 or rewards[agent] == -1 else False for agent in self.agent_names
-            } 
+            if len(list(terms.keys())) == 0:
+                terms = {agent : False for agent in self.agent_names}
 
             # Update win                    
             for agent_name in self.agent_names:
