@@ -175,6 +175,6 @@ if __name__ == '__main__':
             print()
             print("="*10, "CLI", "="*10)
             print()
-            
-    train = Training(args=args)
-    train.train()
+    else:      
+        train = Training(args=args)
+        train.train()
