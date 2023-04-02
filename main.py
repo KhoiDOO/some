@@ -25,7 +25,7 @@ if __name__ == '__main__':
                         help="Mode of rendering")
     parser.add_argument("--stack_size", type=int, default=4,
                         help="Number of stacking frames")
-    parser.add_argument("--max_cycles", type=int, default=128,
+    parser.add_argument("--max_cycles", type=int, default=20000,
                         help="Number of step in one episode")
     parser.add_argument("--frame_size", type=list, default=[84, 84],
                         help="Width and height of frame")
@@ -35,6 +35,8 @@ if __name__ == '__main__':
                         help="Reduce color to grayscale")
     parser.add_argument("--total_steps", type=int, default=1000,
                         help="Total Steps")
+    parser.add_argument("--step", type=int, default=128,
+                        help="step for training")
     parser.add_argument("--view", type=float, default=1,
                         help="Area scale of partial observation varies in range of (0, 2)]")
 

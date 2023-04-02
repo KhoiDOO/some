@@ -10,6 +10,7 @@ import random
 import numpy as np
 from tqdm import trange
 import pandas as pd
+from copy import copy, deepcopy
 
 
 class Training:
@@ -363,9 +364,31 @@ class Training:
             agent : 0 for agent in self.agent_names
         }
         
+        train_count = 1
+        
         for step in trange(self.args.total_steps):
+            
+            try:
+                curr_obs = batchify_obs(next_obs, self.buffer_device)[0]
+            except:
+                reward_log_path = self.main_log_dir + f"/{train_count}_reward_log.parquet"
+                reward_log_df = pd.DataFrame(reward_log)
+                reward_log_df.to_parquet(reward_log_path)
 
-            curr_obs = batchify_obs(next_obs, self.buffer_device)[0]
+                win_log_path = self.main_log_dir + f"/{train_count}_win_log.parquet"
+                win_log_df = pd.DataFrame(win_log)
+                win_log_df.to_parquet(win_log_path)
+                
+                reward_log = self.main_log_init()
+
+                win_log = self.main_log_init()
+
+                reward_win = {
+                    agent : 0 for agent in self.agent_names
+                }
+                
+                next_obs = self.output_env.reset(seed=None)
+                continue
 
             # Make action
             actions, actions_buffer, log_probs_buffer, obs_values_buffer = {}, {}, {}, {}
@@ -416,45 +439,11 @@ class Training:
             for agent in self.agent_names:
                 reward_log[agent].append(rewards[agent])
             
-            for agent in round:
-                if round[agent] > 20:
-                    reward_log_path = self.main_log_dir + f"/{step}_reward_log.csv"
-                    reward_log_df = pd.DataFrame(reward_log)
-                    reward_log_df.to_csv(reward_log_path)
-
-                    win_log_path = self.main_log_dir + f"/{step}_win_log.csv"
-                    win_log_df = pd.DataFrame(win_log)
-                    win_log_df.to_csv(win_log_path)
-                    
-                    reward_log = self.main_log_init()
-
-                    win_log = self.main_log_init()
-
-                    reward_win = {
-                        agent : 0 for agent in self.agent_names
-                    }
-                    
-                    round = {
-                        agent : 0 for agent in self.agent_names
-                    }
-                    
-                    next_obs = self.output_env.reset(seed=None)
-                
-                    continue
-                    
-                else:
-                    round[agent] += 1 if rewards[agent] == 1 or rewards[agent] == -1 else 0
-            
-            print(next_obs.keys())
-            if len(list(terms.keys())) == 0:
-                # for agent in self.agent_names:
-                #     self.main_algo_agents[agent].update()
-                
-                continue
-                
-            elif step == self.args.max_cycles:
+            if step == train_count * self.args.step:
                 for agent in self.agent_names:
                     self.main_algo_agents[agent].update()
+                
+                train_count += 1
             
             for agent in self.agent_names:
                     self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 

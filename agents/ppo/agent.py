@@ -78,7 +78,7 @@ class PPO:
         
     def update(self):
         # Log
-        self._show_info()
+        # self._show_info()
         
         # to torch
         rb_obs = torch.stack(self.buffer.rb_obs).to(self.device)
