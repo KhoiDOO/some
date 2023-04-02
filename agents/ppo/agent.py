@@ -168,7 +168,7 @@ class PPO:
                 self.optimizer.step()
             
         if self.debug:
-            self._debug(actor_loss=pg_loss, critic_loss=v_loss)
+            self._debug()
 
         # clear buffer
         self.buffer.clear()
