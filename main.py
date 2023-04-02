@@ -25,7 +25,7 @@ if __name__ == '__main__':
                         help="Mode of rendering")
     parser.add_argument("--stack_size", type=int, default=4,
                         help="Number of stacking frames")
-    parser.add_argument("--max_cycles", type=int, default=124,
+    parser.add_argument("--max_cycles", type=int, default=128,
                         help="Number of step in one episode")
     parser.add_argument("--frame_size", type=list, default=[84, 84],
                         help="Width and height of frame")

@@ -359,6 +359,10 @@ class Training:
             agent : 0 for agent in self.agent_names
         }
         
+        round = {
+            agent : 0 for agent in self.agent_names
+        }
+        
         for step in trange(self.args.total_steps):
 
             curr_obs = batchify_obs(next_obs, self.buffer_device)[0]
@@ -385,9 +389,9 @@ class Training:
             next_obs, rewards, terms, _, _ = self.output_env.step(actions)  # Update Environment
             
             # Update termination
-            # terms = {
-            #     agent : True if rewards[agent] == 1 or rewards[agent] == -1 else False for agent in self.agent_names
-            # } 
+            terms = {
+                agent : True if rewards[agent] == 1 or rewards[agent] == -1 else False for agent in self.agent_names
+            } 
 
             # Update win                    
             for agent_name in self.agent_names:
@@ -412,27 +416,39 @@ class Training:
             for agent in self.agent_names:
                 reward_log[agent].append(rewards[agent])
             
+            for agent in round:
+                if round[agent] > 20:
+                    reward_log_path = self.main_log_dir + f"/{step}_reward_log.csv"
+                    reward_log_df = pd.DataFrame(reward_log)
+                    reward_log_df.to_csv(reward_log_path)
+
+                    win_log_path = self.main_log_dir + f"/{step}_win_log.csv"
+                    win_log_df = pd.DataFrame(win_log)
+                    win_log_df.to_csv(win_log_path)
+                    
+                    reward_log = self.main_log_init()
+
+                    win_log = self.main_log_init()
+
+                    reward_win = {
+                        agent : 0 for agent in self.agent_names
+                    }
+                    
+                    round = {
+                        agent : 0 for agent in self.agent_names
+                    }
+                    
+                    next_obs = self.output_env.reset(seed=None)
+                
+                    continue
+                    
+                else:
+                    round[agent] += 1 if rewards[agent] == 1 or rewards[agent] == -1 else 0
+            
+            print(next_obs.keys())
             if len(list(terms.keys())) == 0:
-                for agent in self.agent_names:
-                    self.main_algo_agents[agent].update()
-                
-                reward_log_path = self.main_log_dir + f"/{step}_reward_log.csv"
-                reward_log_df = pd.DataFrame(reward_log)
-                reward_log_df.to_csv(reward_log_path)
-
-                win_log_path = self.main_log_dir + f"/{step}_win_log.csv"
-                win_log_df = pd.DataFrame(win_log)
-                win_log_df.to_csv(win_log_path)
-                
-                reward_log = self.main_log_init()
-
-                win_log = self.main_log_init()
-
-                reward_win = {
-                    agent : 0 for agent in self.agent_names
-                }
-                
-                next_obs = self.output_env.reset(seed=None)
+                # for agent in self.agent_names:
+                #     self.main_algo_agents[agent].update()
                 
                 continue
                 
