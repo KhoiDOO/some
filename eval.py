@@ -83,8 +83,6 @@ if __name__ == "__main__":
         rew_avg_round_dict = {
             "episode" : [],
             "avg_step" : [],
-            "first_0" : [],
-            "second_0" : []
         }
         
         for idx, rew_log_path in enumerate(rew_log_paths):
@@ -106,16 +104,12 @@ if __name__ == "__main__":
             sum_round = first_win + second_win
             
             rew_avg_round_dict["episode"].append(idx)
-            rew_avg_round_dict["avg_step"].append(sum_round/base_df.shape[0])
-            rew_avg_round_dict["first_0"].append(first_win/base_df.shape[0])
-            rew_avg_round_dict["second_0"].append(second_win/base_df.shape[0])
+            rew_avg_round_dict["avg_step"].append(base_df.shape[0]/sum_round)
         
         rew_avg_df = pd.DataFrame(rew_avg_round_dict)
         plt.figure()
         
         sns.lineplot(data = rew_avg_df, x = "episode", y = "avg_step", label="avg_step")
-        sns.lineplot(data = rew_avg_df, x = "episode", y = "first_0", label="first_0")
-        sns.lineplot(data = rew_avg_df, x = "episode", y = "second_0", label="second_0")
         
         filename = curr_dir + "/avg_step"
         plt.title("Average round performed in each episode")
