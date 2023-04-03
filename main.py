@@ -1,6 +1,5 @@
 import os, sys
 import argparse
-from datetime import datetime
 import torch
 from beautifultable import BeautifulTable
 
