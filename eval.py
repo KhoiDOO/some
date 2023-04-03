@@ -37,6 +37,7 @@ if __name__ == "__main__":
         filename = curr_dir + "/reward_mv"
         plt.title("Reward Over Training Episode")
         plt.savefig(filename)
+        plt.close()
         
         # plot first
         plt.figure()
@@ -44,6 +45,7 @@ if __name__ == "__main__":
         filename = curr_dir + "/first_reward_mv"
         plt.title("Reward of First Agent Over Training Episode")
         plt.savefig(filename)
+        plt.close()
         
         # plot second
         plt.figure()
@@ -51,6 +53,7 @@ if __name__ == "__main__":
         filename = curr_dir + "/second_reward_mv"
         plt.title("Reward of Second Agent Over Training Episode")
         plt.savefig(filename)
+        plt.close()
         
         # plot reward total
         rew_sum_dict = {
@@ -77,6 +80,7 @@ if __name__ == "__main__":
         filename = curr_dir + "/reward_sum"
         plt.title("Sum of Reward over Training Procedure")
         plt.savefig(filename)
+        plt.close()
         
         # plot avg step
         
@@ -114,3 +118,4 @@ if __name__ == "__main__":
         filename = curr_dir + "/avg_step"
         plt.title("Average round performed in each episode")
         plt.savefig(filename)
+        plt.close()
