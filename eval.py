@@ -96,16 +96,19 @@ if __name__ == "__main__":
             
             try:
                 first_win = count_base_df[count_base_df["first_0"] == 1].iloc[0, -1]
+            except:
+                first_win = 0
+            try:
                 second_win = count_base_df[count_base_df["second_0"] == 1].iloc[0, -1]
             except:
-                continue
+                second_win = 0
             
-            sum_round = int((first_win + second_win)/2)
+            sum_round = first_win + second_win
             
             rew_avg_round_dict["episode"].append(idx)
-            rew_avg_round_dict["avg_step"].append(base_df.shape[0]/sum_round)
-            rew_avg_round_dict["first_0"].append(base_df.shape[0]/first_win)
-            rew_avg_round_dict["second_0"].append(base_df.shape[0]/second_win)
+            rew_avg_round_dict["avg_step"].append(sum_round/base_df.shape[0])
+            rew_avg_round_dict["first_0"].append(first_win/base_df.shape[0])
+            rew_avg_round_dict["second_0"].append(second_win/base_df.shape[0])
         
         rew_avg_df = pd.DataFrame(rew_avg_round_dict)
         plt.figure()
