@@ -94,10 +94,11 @@ if __name__ == "__main__":
             
             count_base_df.reset_index(inplace=True)   
             
-            print(count_base_df)
-            
-            first_win = count_base_df[count_base_df["first_0"] == 1].iloc[0, -1]
-            second_win = count_base_df[count_base_df["second_0"] == 1].iloc[0, -1]
+            try:
+                first_win = count_base_df[count_base_df["first_0"] == 1].iloc[0, -1]
+                second_win = count_base_df[count_base_df["second_0"] == 1].iloc[0, -1]
+            except:
+                continue
             
             sum_round = int((first_win + second_win)/2)
             
