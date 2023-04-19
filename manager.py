@@ -461,29 +461,30 @@ class Training:
             """
             if self.args.selective_buffer:
                 for agent in self.agent_names:
-                        selective_mask = mask_checkout(rewards[agent])
-                        tmp_obs, tmp_act, tmp_probs, \
-                        tmp_rew, tmp_obs_val, tmp_term = select_obs(obs = curr_obs,
-                                                                   act = actions_buffer[agent],
-                                                                   log_probs = log_probs_buffer[agent],
-                                                                   rew = rewards[agent],
-                                                                   obs_val = obs_values_buffer[agent],
-                                                                   term = terms[agent],
-                                                                   mask = selective_mask)
-                        self.main_algo_agents[agent].insert_buffer(obs = tmp_obs,
-                                                                   act = tmp_act,
-                                                                   log_probs = tmp_probs,
-                                                                   rew = tmp_rew,
-                                                                   obs_val = tmp_obs_val,
-                                                                   term = tmp_term)
+                    print(rewards)
+                    selective_mask = mask_checkout(rewards[agent])
+                    tmp_obs, tmp_act, tmp_probs, \
+                    tmp_rew, tmp_obs_val, tmp_term = select_obs(obs = curr_obs,
+                                                               act = actions_buffer[agent],
+                                                               log_probs = log_probs_buffer[agent],
+                                                               rew = rewards[agent],
+                                                               obs_val = obs_values_buffer[agent],
+                                                               term = terms[agent],
+                                                               mask = selective_mask)
+                    self.main_algo_agents[agent].insert_buffer(obs = tmp_obs,
+                                                               act = tmp_act,
+                                                               log_probs = tmp_probs,
+                                                               rew = tmp_rew,
+                                                               obs_val = tmp_obs_val,
+                                                               term = tmp_term)
             else:
                 for agent in self.agent_names:
-                        self.main_algo_agents[agent].insert_buffer(obs = curr_obs,
-                                                                   act = actions_buffer[agent],
-                                                                   log_probs = log_probs_buffer[agent],
-                                                                   rew = rewards[agent],
-                                                                   obs_val = obs_values_buffer[agent],
-                                                                   term = terms[agent])
+                    self.main_algo_agents[agent].insert_buffer(obs = curr_obs,
+                                                               act = actions_buffer[agent],
+                                                               log_probs = log_probs_buffer[agent],
+                                                               rew = rewards[agent],
+                                                               obs_val = obs_values_buffer[agent],
+                                                               term = terms[agent])
 
             # Update no. win in episode
             win_log["step"].append(step)

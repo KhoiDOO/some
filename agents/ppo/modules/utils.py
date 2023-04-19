@@ -7,7 +7,6 @@ from copy import copy, deepcopy
 
 
 def mask_checkout(rewards):
-    print(rewards)
     mask = torch.zeros_like(rewards)
     nz_idx = torch.nonzero(rewards != 0).squeeze()
     mask[:nz_idx[0] + 1] = 1
