@@ -256,6 +256,12 @@ class Training:
                     }          
 
                     # Update buffer for algo actor critic
+                    """
+                        For sample-efficient, the agent should selectively choose the sample
+                    for the learning process:
+                    - At each sampling round, winning agent (scores = 0) will do not insert 
+                    the observation into buffers.
+                    """
                     for agent in rewards:
                         self.main_algo_agents[agent].insert_buffer(rewards[agent], terms[agent])
                 
@@ -443,7 +449,13 @@ class Training:
                         self.main_algo_agents[agent].update_clip(step, self.args.total_steps)
                 
                 train_count += 1
-            
+
+            """
+                For sample-efficient, the agent should selectively choose the sample
+            for the learning process:
+            - At each sampling round, winning agent (scores = 0) will do not insert 
+            the observation into buffers.
+            """
             for agent in self.agent_names:
                     self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
                                                                 act = actions_buffer[agent], 
