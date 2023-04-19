@@ -22,12 +22,13 @@ def select_obs(self, obs: torch.Tensor,
                rew: torch.Tensor,
                obs_val: torch.Tensor,
                term: bool,
-               masks: torch.Tensor):
+               mask: torch.Tensor):
 
-    sel_obs = obs[masks]
-    sel_act = act[masks]
-    sel_probs = log_probs[masks]
-    sel_rew = rew[masks]
-    sel_obs_val = obs_val[masks]
-    sel_term = term[masks]
+    sel_obs = obs[mask]
+    sel_act = act[mask]
+    sel_probs = log_probs[mask]
+    sel_rew = rew[mask]
+    sel_obs_val = obs_val[mask]
+    sel_term = term[mask]
+
     return sel_obs, sel_act, sel_probs, sel_rew, sel_obs_val, sel_term
