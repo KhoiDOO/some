@@ -455,16 +455,35 @@ class Training:
             for the learning process:
             - At each sampling round, winning agent (scores = 0) will do not insert 
             the observation into buffers.
-            - 
+            - Create a masks[agent] - if rewards = 1 -> set all other 
+            - Search over rewards[agent] - if rewards = 1 -> removes all other rewards/obs/act/log_probs/obs_val/term
             """
-            for agent in self.agent_names:
-                    self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
-                                                               act = actions_buffer[agent],
-                                                               log_probs = log_probs_buffer[agent],
-                                                               rew = rewards[agent],
-                                                               obs_val = obs_values_buffer[agent],
-                                                               term = terms[agent])
-        
+            if args.selective_buffer:
+                for agent in self.agent_names:
+                        selective_mask = mask_design(rewards[agent])
+                        tmp_obs, tmp_act, tmp_probs, \
+                        tmp_rew, tmp_obs_val, tmp_term = select_obs(obs = curr_obs,
+                                                                   act = actions_buffer[agent],
+                                                                   log_probs = log_probs_buffer[agent],
+                                                                   rew = rewards[agent],
+                                                                   obs_val = obs_values_buffer[agent],
+                                                                   term = terms[agent],
+                                                                   mask = selective_mask)
+                        self.main_algo_agents[agent].insert_buffer(obs = tmp_obs,
+                                                                   act = tmp_act,
+                                                                   log_probs = log_probs_buffer[agent],
+                                                                   rew = rewards[agent],
+                                                                   obs_val = obs_values_buffer[agent],
+                                                                   term = terms[agent])
+            else:
+                for agent in self.agent_names:
+                        self.main_algo_agents[agent].insert_buffer(obs = curr_obs,
+                                                                   act = actions_buffer[agent],
+                                                                   log_probs = log_probs_buffer[agent],
+                                                                   rew = rewards[agent],
+                                                                   obs_val = obs_values_buffer[agent],
+                                                                   term = terms[agent])
+
             # Update no. win in episode
             win_log["step"].append(step)
             for agent in self.agent_names:
