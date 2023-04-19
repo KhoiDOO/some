@@ -443,7 +443,7 @@ class Training:
             if step == train_count * self.args.step:
                 for agent in self.agent_names:
                     self.main_algo_agents[agent].update()
-                    
+
                     if self.args.lr_decay:
                         self.main_algo_agents[agent].update_lr(step, self.args.total_steps)
                     if self.args.clip_decay:
@@ -461,22 +461,20 @@ class Training:
             """
             if self.args.selective_buffer:
                 for agent in self.agent_names:
-                    print(f"rew: {rewards} | obs: {curr_obs}")
-                    selective_mask = mask_checkout(rewards[agent])
-                    tmp_obs, tmp_act, tmp_probs, \
-                    tmp_rew, tmp_obs_val, tmp_term = select_obs(obs = curr_obs,
-                                                               act = actions_buffer[agent],
-                                                               log_probs = log_probs_buffer[agent],
-                                                               rew = rewards[agent],
-                                                               obs_val = obs_values_buffer[agent],
-                                                               term = terms[agent],
-                                                               mask = selective_mask)
-                    self.main_algo_agents[agent].insert_buffer(obs = tmp_obs,
-                                                               act = tmp_act,
-                                                               log_probs = tmp_probs,
-                                                               rew = tmp_rew,
-                                                               obs_val = tmp_obs_val,
-                                                               term = tmp_term)
+                    self.main_algo_agents[agent].insert_tmp_buffer(obs = curr_obs,
+                                                                   act = actions_buffer[agent],
+                                                                   log_probs = log_probs_buffer[agent],
+                                                                   rew = rewards[agent],
+                                                                   obs_val = obs_values_buffer[agent],
+                                                                   term = terms[agent])
+                    # capture the event that rew is non-zero (NZ)
+                    if rewards[agent] == -1:
+                        selective_mask = mask_checkout(self.main_algo_agents[agent].buffer.tmp_rewards)
+                        self.main_algo_agents[agent].mask_tmp_buffer(selective_mask)
+                        self.main_algo_agents[agent].tmp_to_buffer()
+
+
+
             else:
                 for agent in self.agent_names:
                     self.main_algo_agents[agent].insert_buffer(obs = curr_obs,
@@ -490,3 +488,12 @@ class Training:
             win_log["step"].append(step)
             for agent in self.agent_names:
                 win_log[agent].append(reward_win[agent])
+
+
+# selective_mask = mask_checkout(rewards[agent])
+# self.main_algo_agents[agent].insert_buffer(obs=tmp_obs,
+#                                            act=tmp_act,
+#                                            log_probs=tmp_probs,
+#                                            rew=tmp_rew,
+#                                            obs_val=tmp_obs_val,
+#                                            term=tmp_term)
