@@ -28,6 +28,13 @@ class RolloutBuffer(Buffer):
         self.rb_rewards = []
         self.rb_values = []
         self.rb_terms = []
+
+        self.tmp_actions = []
+        self.tmp_obs = []
+        self.tmp_logprobs = []
+        self.tmp_rewards = []
+        self.tmp_values = []
+        self.tmp_terms = []
     
     def clear(self):
         del self.rb_actions[:]
@@ -37,6 +44,21 @@ class RolloutBuffer(Buffer):
         del self.rb_values[:]
         del self.rb_terms[:]
 
+    def mask_tmp_buffer(self, mask):
+        del self.tmp_actions[~mask]
+        del self.tmp_obs[~mask]
+        del self.tmp_logprobs[~mask]
+        del self.tmp_rewards[~mask]
+        del self.tmp_values[~mask]
+        del self.tmp_terms[~mask]
+
+    def clear_tmp_buffer(self):
+        del self.tmp_actions[:]
+        del self.tmp_obs[:]
+        del self.tmp_logprobs[:]
+        del self.tmp_rewards[:]
+        del self.tmp_values[:]
+        del self.tmp_terms[:]
 
 class PPORolloutBuffer(Buffer, Dataset):
     def __init__(self, capacity:int = 5,
