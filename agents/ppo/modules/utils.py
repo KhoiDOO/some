@@ -7,6 +7,7 @@ from copy import copy, deepcopy
 
 
 def mask_checkout(rewards):
+    print(rewards)
     mask = torch.zeros_like(rewards)
     nz_idx = torch.nonzero(rewards != 0).squeeze()
     mask[:nz_idx[0] + 1] = 1
@@ -22,7 +23,7 @@ def select_obs(self, obs: torch.Tensor,
                rew: torch.Tensor,
                obs_val: torch.Tensor,
                term: bool,
-               masks):
+               masks: torch.Tensor):
 
     sel_obs = obs[masks]
     sel_act = act[masks]

@@ -472,10 +472,10 @@ class Training:
                                                                    mask = selective_mask)
                         self.main_algo_agents[agent].insert_buffer(obs = tmp_obs,
                                                                    act = tmp_act,
-                                                                   log_probs = log_probs_buffer[agent],
-                                                                   rew = rewards[agent],
-                                                                   obs_val = obs_values_buffer[agent],
-                                                                   term = terms[agent])
+                                                                   log_probs = tmp_probs,
+                                                                   rew = tmp_rew,
+                                                                   obs_val = tmp_obs_val,
+                                                                   term = tmp_term)
             else:
                 for agent in self.agent_names:
                         self.main_algo_agents[agent].insert_buffer(obs = curr_obs,
