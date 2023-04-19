@@ -56,6 +56,8 @@ if __name__ == '__main__':
                         help="Max reward only use for pong-algo-only mode")
     parser.add_argument("--inverse_reward", action='store_true',
                         help="change the sign of reward")
+    parser.add_argument("--selective_buffer", type=bool, default=False,
+                        help="Flag to trigger the data select function for buffer")
     parser.add_argument("--buffer_device", type=str, default="cpu",
                         help="Device used for memory replay")
     parser.add_argument("--device_index", 
