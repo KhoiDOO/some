@@ -3,6 +3,7 @@ import json
 from utils.mapping import *
 from utils.fol_struc import run_folder_verify
 from utils.batchify import *
+from agents.ppo.modules.utils import *
 import argparse
 from datetime import datetime
 import torch
@@ -460,7 +461,7 @@ class Training:
             """
             if args.selective_buffer:
                 for agent in self.agent_names:
-                        selective_mask = mask_design(rewards[agent])
+                        selective_mask = mask_checkout(rewards[agent])
                         tmp_obs, tmp_act, tmp_probs, \
                         tmp_rew, tmp_obs_val, tmp_term = select_obs(obs = curr_obs,
                                                                    act = actions_buffer[agent],
