@@ -459,7 +459,7 @@ class Training:
             - Create a masks[agent] - if rewards = 1 -> set all other 
             - Search over rewards[agent] - if rewards = 1 -> removes all other rewards/obs/act/log_probs/obs_val/term
             """
-            if args.selective_buffer:
+            if self.args.selective_buffer:
                 for agent in self.agent_names:
                         selective_mask = mask_checkout(rewards[agent])
                         tmp_obs, tmp_act, tmp_probs, \
