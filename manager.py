@@ -460,9 +460,8 @@ class Training:
             - Search over rewards[agent] - if rewards = 1 -> removes all other rewards/obs/act/log_probs/obs_val/term
             """
             if self.args.selective_buffer:
-                print(self.args.selective_buffer)
                 for agent in self.agent_names:
-                    print(agent)
+                    print(rewards[agent])
                     selective_mask = mask_checkout(rewards[agent])
                     tmp_obs, tmp_act, tmp_probs, \
                     tmp_rew, tmp_obs_val, tmp_term = select_obs(obs = curr_obs,
