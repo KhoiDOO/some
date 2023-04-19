@@ -62,20 +62,44 @@ class PPO:
             action, action_logprob, obs_val = self.policy.act(obs.to(self.device, dtype=torch.float))
         return action, action_logprob, obs_val
 
-    def insert_buffer(self, obs: torch.Tensor, 
-               act: torch.Tensor, 
-               log_probs: torch.Tensor,
-               rew: torch.Tensor,
-               obs_val: torch.Tensor,
-               term: bool):
+    def tmp_to_buffer(self):
         
+        self.buffer.rb_obs.append(self.buffer.tmp_obs)
+        self.buffer.rb_actions.append(self.buffer.tmp_actions)
+        self.buffer.rb_logprobs.append(self.buffer.tmp_logprobs)
+        self.buffer.rb_values.append(self.buffer.tmp_values)
+        self.buffer.rb_rewards.append(self.buffer.tmp_rewards)
+        self.buffer.rb_terms.append(self.buffer.tmp_terms)
+        self.buffer.clear_tmp_buffer()
+
+    def insert_buffer(self, obs: torch.Tensor,
+                      act: torch.Tensor,
+                      log_probs: torch.Tensor,
+                      rew: torch.Tensor,
+                      obs_val: torch.Tensor,
+                      term: bool):
+
         self.buffer.rb_obs.append(obs)
         self.buffer.rb_actions.append(act)
         self.buffer.rb_logprobs.append(log_probs)
-        self.buffer.rb_values.append(obs_val)
-        self.buffer.rb_rewards.append(rew)
+        self.buffer.rb_values.append(rew)
+        self.buffer.rb_rewards.append(obs_val)
         self.buffer.rb_terms.append(term)
-        
+
+    def insert_tmp_buffer(self, obs: torch.Tensor,
+                      act: torch.Tensor,
+                      log_probs: torch.Tensor,
+                      rew: torch.Tensor,
+                      obs_val: torch.Tensor,
+                      term: bool):
+
+        self.buffer.tmp_obs.append(obs)
+        self.buffer.tmp_actions.append(act)
+        self.buffer.tmp_logprobs.append(log_probs)
+        self.buffer.tmp_values.append(obs_val)
+        self.buffer.tmp_rewards.append(rew)
+        self.buffer.tmp_terms.append(term)
+
     def update(self):
         # Log
         # self._show_info()
