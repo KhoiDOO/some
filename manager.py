@@ -455,14 +455,15 @@ class Training:
             for the learning process:
             - At each sampling round, winning agent (scores = 0) will do not insert 
             the observation into buffers.
+            - 
             """
             for agent in self.agent_names:
                     self.main_algo_agents[agent].insert_buffer(obs = curr_obs, 
-                                                                act = actions_buffer[agent], 
-                                                                log_probs = log_probs_buffer[agent],
-                                                                rew = rewards[agent],
-                                                                obs_val = obs_values_buffer[agent],
-                                                                term = terms[agent])
+                                                               act = actions_buffer[agent],
+                                                               log_probs = log_probs_buffer[agent],
+                                                               rew = rewards[agent],
+                                                               obs_val = obs_values_buffer[agent],
+                                                               term = terms[agent])
         
             # Update no. win in episode
             win_log["step"].append(step)
