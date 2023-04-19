@@ -7,9 +7,13 @@ from copy import copy, deepcopy
 
 
 def mask_checkout(rewards):
-    tmp_mask = rewards
-    mask = tmp_mask.bool()
-    return None
+    mask = torch.zeros_like(rewards)
+    nz_idx = torch.nonzero(rewards != 0).squeeze()
+    mask[:nz_idx[0] + 1] = 1
+    for i in range(1, len(nz_idx)):
+        if rewards[nz_idx[i]] == -1:
+            mask[nz_idx[i - 1] + 1:nz_idx[i] + 1] = 1
+    return mask.bool()
 
 
 def select_obs(self, obs: torch.Tensor,
